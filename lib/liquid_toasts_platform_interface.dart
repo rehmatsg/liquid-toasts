@@ -1,9 +1,15 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'liquid_toasts_method_channel.dart';
+import 'src/liquid_toasts_config.dart';
+import 'src/toast.dart';
+import 'src/toast_event.dart';
 
+/// The platform interface for `liquid_toasts`.
+///
+/// The Dart facade ([LiquidToasts]) talks only to [instance]; platform
+/// implementations (currently the iOS method channel) subclass this.
 abstract class LiquidToastsPlatform extends PlatformInterface {
-  /// Constructs a LiquidToastsPlatform.
   LiquidToastsPlatform() : super(token: _token);
 
   static final Object _token = Object();
@@ -11,19 +17,57 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
   static LiquidToastsPlatform _instance = MethodChannelLiquidToasts();
 
   /// The default instance of [LiquidToastsPlatform] to use.
-  ///
-  /// Defaults to [MethodChannelLiquidToasts].
   static LiquidToastsPlatform get instance => _instance;
 
-  /// Platform-specific implementations should set this with their own
-  /// platform-specific class that extends [LiquidToastsPlatform] when
-  /// they register themselves.
   static set instance(LiquidToastsPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
+  /// Announces a fresh Dart session so native can flush any state left over
+  /// from a previous run (e.g. after a hot restart).
+  Future<void> handshake(String session) {
+    throw UnimplementedError('handshake() has not been implemented.');
+  }
+
+  /// Pushes app-wide stack/queue configuration to native.
+  Future<void> configure(LiquidToastsConfig config) {
+    throw UnimplementedError('configure() has not been implemented.');
+  }
+
+  /// Shows [toast] under the Dart-minted [id]. [actionId] correlates the
+  /// toast's action button to its Dart callback. Returns whether native
+  /// accepted it.
+  Future<bool> show(String id, Toast toast, {String? actionId}) {
+    throw UnimplementedError('show() has not been implemented.');
+  }
+
+  /// Replaces the live toast [id]'s content in place (morph). Returns whether
+  /// it was applied (`false` if the toast was already gone — an expected race).
+  Future<bool> update(String id, Toast toast, {String? actionId}) {
+    throw UnimplementedError('update() has not been implemented.');
+  }
+
+  /// Dismisses toast [id]. Returns whether it was live (idempotent).
+  Future<bool> dismiss(String id) {
+    throw UnimplementedError('dismiss() has not been implemented.');
+  }
+
+  /// Dismisses every toast; returns the ids that were actually torn down so the
+  /// facade can reconcile its registry in one pass.
+  Future<List<String>> dismissAll() {
+    throw UnimplementedError('dismissAll() has not been implemented.');
+  }
+
+  /// Advisory device geometry / capability snapshot (Dynamic Island, safe area,
+  /// glass mode, …). Native always recomputes real geometry at render time.
+  Future<Map<String, dynamic>> queryGeometry() {
+    throw UnimplementedError('queryGeometry() has not been implemented.');
+  }
+
+  /// Broadcast stream of native → Dart lifecycle events (action taps, body
+  /// taps, dismissals), routed by toast id on the Dart side.
+  Stream<ToastEvent> get events {
+    throw UnimplementedError('events has not been implemented.');
   }
 }

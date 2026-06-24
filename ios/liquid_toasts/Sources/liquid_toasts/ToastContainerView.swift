@@ -22,36 +22,34 @@ struct ToastContainerView: View {
   }
 
   var body: some View {
-    GeometryReader { proxy in
-      let insets = proxy.safeAreaInsets
-      let hasDI = insets.top >= 51
-      ZStack(alignment: frontPosition.alignment) {
-        Color.clear
-        ForEach(Array(manager.toasts.enumerated()), id: \.element.id) { index, toast in
-          let depth = (manager.toasts.count - 1) - index
-          layer(toast: toast, depth: depth, index: index, hasDI: hasDI)
-        }
+    // No .ignoresSafeArea(): the host view is pinned full-screen, so SwiftUI's
+    // safe area places top toasts just below the Dynamic Island and bottom
+    // toasts above the home indicator automatically.
+    ZStack(alignment: frontPosition.alignment) {
+      Color.clear
+      ForEach(Array(manager.toasts.enumerated()), id: \.element.id) { index, toast in
+        let depth = (manager.toasts.count - 1) - index
+        layer(toast: toast, depth: depth, index: index)
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frontPosition.alignment)
-      .padding(.top, insets.top + 6)
-      .padding(.bottom, insets.bottom + 10)
-      .padding(.horizontal, 12)
-      .animation(motion, value: manager.toasts.map(\.id))
     }
-    .ignoresSafeArea()
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frontPosition.alignment)
+    .padding(.top, 8)
+    .padding(.bottom, 8)
+    .padding(.horizontal, 12)
+    .animation(motion, value: manager.toasts.map(\.id))
     .onPreferenceChange(ToastFramePreferenceKey.self) { frames in
       manager.frames = frames
     }
   }
 
   @ViewBuilder
-  private func layer(toast: ToastModel, depth: Int, index: Int, hasDI: Bool) -> some View {
+  private func layer(toast: ToastModel, depth: Int, index: Int) -> some View {
     let isFront = depth == 0
     let capped = min(depth, manager.maxVisible)
-    let scale = 1 - 0.06 * CGFloat(capped)
+    let scale = 1 - 0.05 * CGFloat(capped)
     let opacity: Double = depth == 0
       ? 1
-      : (depth > manager.maxVisible ? 0 : 1 - 0.26 * Double(capped))
+      : (depth > manager.maxVisible ? 0 : 1 - 0.2 * Double(capped))
     let offset = stackOffsetY(depth: capped, isTop: toast.position.isTop)
 
     ToastView(
@@ -74,11 +72,11 @@ struct ToastContainerView: View {
     .opacity(opacity)
     .zIndex(Double(index))
     .accessibilityHidden(!isFront)
-    .transition(transition(for: toast, hasDI: hasDI))
+    .transition(transition(for: toast))
   }
 
   private func stackOffsetY(depth: Int, isTop: Bool) -> CGFloat {
-    let magnitude = 9 * CGFloat(depth)
+    let magnitude = 13 * CGFloat(depth)
     return isTop ? magnitude : -magnitude
   }
 
@@ -88,9 +86,9 @@ struct ToastContainerView: View {
       : .spring(response: 0.42, dampingFraction: 0.82)
   }
 
-  private func transition(for toast: ToastModel, hasDI: Bool) -> AnyTransition {
+  private func transition(for toast: ToastModel) -> AnyTransition {
     if reduceMotion { return .opacity }
-    if toast.isIslandInsertion && toast.position == .topCenter && hasDI {
+    if toast.isIslandInsertion && toast.position == .topCenter && manager.hasDynamicIsland {
       return .asymmetric(insertion: .islandReveal, removal: .stackEdge(top: true))
     }
     return .stackEdge(top: toast.position.isTop)

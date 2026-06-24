@@ -13,6 +13,10 @@ final class ToastManager: ObservableObject {
   /// SwiftUI layer and read by the overlay host's hit-test for pass-through.
   @Published var frames: [String: CGRect] = [:]
 
+  /// Whether the host device has a Dynamic Island (set by the overlay host from
+  /// the window). Drives the island-origin transition.
+  @Published var hasDynamicIsland: Bool = false
+
   var maxVisible: Int = 3
   var maxQueue: Int = 8
   var dropOldest: Bool = true

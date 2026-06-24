@@ -47,19 +47,21 @@ struct ToastView: View {
           ProgressView(value: max(0, min(1, progress)))
             .progressViewStyle(.linear)
             .tint(toast.semantic.tint)
-            .frame(maxWidth: 200)
+            .frame(width: 180)
             .padding(.top, 3)
         }
       }
+      // Hug short content; cap (and wrap) long text so the pill stays compact.
+      .frame(maxWidth: 250, alignment: .leading)
 
       if let action = toast.action {
         ActionButton(action: action, onTap: onAction)
           .padding(.leading, 2)
       }
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
-    .frame(maxWidth: 380)
+    .padding(.horizontal, 18)
+    .padding(.vertical, 13)
+    .frame(maxWidth: 360)
     .background { GlassBackground(shape: shape) }
     .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
     .contentShape(shape)

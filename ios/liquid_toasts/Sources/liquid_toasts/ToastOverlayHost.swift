@@ -76,6 +76,12 @@ final class ToastOverlayHost {
 
     hostController = controller
     hostView = host
+    refreshGeometry()
+  }
+
+  /// Recomputes device geometry (Dynamic Island presence) onto the manager.
+  func refreshGeometry() {
+    manager.hasDynamicIsland = DynamicIslandGeometry.hasDynamicIsland(Self.activeWindow())
   }
 
   /// Keeps the overlay frontmost if the app later adds sibling views.
@@ -102,6 +108,7 @@ final class ToastOverlayHost {
       MainActor.assumeIsolated {
         guard let self else { return }
         if self.hostController == nil { self.ensureInstalled() } else { self.bringToFront() }
+        self.refreshGeometry()
       }
     }
     center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in

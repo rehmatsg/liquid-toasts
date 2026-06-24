@@ -17,25 +17,28 @@ struct ToastContainerView: View {
   @ObservedObject var manager: ToastManager
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  private var frontPosition: ToastPositionModel {
-    manager.toasts.last?.position ?? .topCenter
+  /// Toasts grouped by position, preserving insertion order — each position is
+  /// its own independent stack so a bottom toast never disturbs the top stack.
+  private var groups: [(position: ToastPositionModel, toasts: [ToastModel])] {
+    var order: [ToastPositionModel] = []
+    var map: [ToastPositionModel: [ToastModel]] = [:]
+    for toast in manager.toasts {
+      if map[toast.position] == nil { order.append(toast.position) }
+      map[toast.position, default: []].append(toast)
+    }
+    return order.map { (position: $0, toasts: map[$0]!) }
   }
 
   var body: some View {
     // No .ignoresSafeArea(): the host view is pinned full-screen, so SwiftUI's
     // safe area places top toasts just below the Dynamic Island and bottom
     // toasts above the home indicator automatically.
-    ZStack(alignment: frontPosition.alignment) {
+    ZStack {
       Color.clear
-      ForEach(Array(manager.toasts.enumerated()), id: \.element.id) { index, toast in
-        let depth = (manager.toasts.count - 1) - index
-        layer(toast: toast, depth: depth, index: index)
+      ForEach(groups, id: \.position) { group in
+        positionedStack(position: group.position, toasts: group.toasts)
       }
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frontPosition.alignment)
-    .padding(.top, 8)
-    .padding(.bottom, 8)
-    .padding(.horizontal, 12)
     .animation(motion, value: manager.toasts.map(\.id))
     .onPreferenceChange(ToastFramePreferenceKey.self) { frames in
       manager.frames = frames
@@ -43,7 +46,24 @@ struct ToastContainerView: View {
   }
 
   @ViewBuilder
-  private func layer(toast: ToastModel, depth: Int, index: Int) -> some View {
+  private func positionedStack(position: ToastPositionModel, toasts: [ToastModel]) -> some View {
+    // Peeking cards adopt the front card's measured width so the stack reads as
+    // uniform cards even though each toast hugs its own content when frontmost.
+    let frontWidth = toasts.last.flatMap { manager.frames[$0.id]?.width }
+    ZStack(alignment: position.alignment) {
+      ForEach(Array(toasts.enumerated()), id: \.element.id) { index, toast in
+        let depth = (toasts.count - 1) - index
+        layer(toast: toast, depth: depth, index: index, frontWidth: frontWidth)
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: position.alignment)
+    .padding(.top, 8)
+    .padding(.bottom, 8)
+    .padding(.horizontal, 12)
+  }
+
+  @ViewBuilder
+  private func layer(toast: ToastModel, depth: Int, index: Int, frontWidth: CGFloat?) -> some View {
     let isFront = depth == 0
     let capped = min(depth, manager.maxVisible)
     let scale = 1 - 0.05 * CGFloat(capped)
@@ -54,6 +74,7 @@ struct ToastContainerView: View {
 
     ToastView(
       toast: toast,
+      width: isFront ? nil : frontWidth,
       onTapBody: { manager.handleBodyTap(id: toast.id) },
       onAction: { manager.handleAction(id: toast.id) },
       onSwipe: { manager.handleSwipe(id: toast.id) }

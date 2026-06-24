@@ -4,6 +4,10 @@ import SwiftUI
 /// action, on an adaptive glass surface, with swipe- and tap-to-dismiss.
 struct ToastView: View {
   let toast: ToastModel
+  /// When set, the toast renders at this fixed width instead of hugging its
+  /// content — used for peeking cards behind the front so a stack reads as
+  /// uniform cards. The front (active) toast always hugs (width == nil).
+  var width: CGFloat? = nil
   let onTapBody: () -> Void
   let onAction: () -> Void
   let onSwipe: () -> Void
@@ -12,21 +16,23 @@ struct ToastView: View {
   @State private var dragOffset: CGFloat = 0
 
   private var shape: AnyShape {
+    // Fully rounded (capsule) by default; a custom cornerRadius opts into a
+    // rounded rectangle instead.
     if let radius = toast.style?.cornerRadius {
       return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
-    // Multi-line toasts read better as a rounded rect than a tall capsule.
-    if toast.maxLines > 1 || (toast.title?.isEmpty == false) {
-      return AnyShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-    return AnyShape(Capsule())
+    return AnyShape(Capsule(style: .continuous))
   }
 
   private var foreground: Color {
     toast.style?.foreground?.resolved(scheme) ?? .primary
   }
 
-  var body: some View {
+  /// When an action is present its trailing inset matches the vertical inset so
+  /// the button sits with a uniform margin on its top / bottom / right edges.
+  private var trailingPadding: CGFloat { toast.action == nil ? 16 : 11 }
+
+  private var content: some View {
     HStack(spacing: 12) {
       IconView(toast: toast)
 
@@ -47,30 +53,43 @@ struct ToastView: View {
           ProgressView(value: max(0, min(1, progress)))
             .progressViewStyle(.linear)
             .tint(toast.semantic.tint)
-            .frame(width: 180)
-            .padding(.top, 3)
+            .frame(width: 160)
+            .padding(.top, 4)
         }
       }
-      // Hug short content; cap (and wrap) long text so the pill stays compact.
-      .frame(maxWidth: 250, alignment: .leading)
+      // Cap (and wrap) very long text so the pill never spans the screen.
+      .frame(maxWidth: 260, alignment: .leading)
 
       if let action = toast.action {
         ActionButton(action: action, onTap: onAction)
-          .padding(.leading, 2)
       }
     }
-    .padding(.horizontal, 18)
-    .padding(.vertical, 13)
-    .frame(maxWidth: 360)
-    .background { GlassBackground(shape: shape) }
-    .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
-    .contentShape(shape)
-    .offset(y: dragOffset)
-    .highPriorityGesture(dragGesture)
-    .onTapGesture { onTapBody() }
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(toast.accessibilityText)
-    .accessibilityAddTraits(.isStaticText)
+    .padding(.leading, 16)
+    .padding(.trailing, trailingPadding)
+    .padding(.vertical, 11)
+  }
+
+  var body: some View {
+    sized
+      .background { GlassBackground(shape: shape) }
+      .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
+      .contentShape(shape)
+      .offset(y: dragOffset)
+      .highPriorityGesture(dragGesture)
+      .onTapGesture { onTapBody() }
+      .accessibilityElement(children: .combine)
+      .accessibilityLabel(toast.accessibilityText)
+      .accessibilityAddTraits(.isStaticText)
+  }
+
+  @ViewBuilder
+  private var sized: some View {
+    if let width {
+      content.frame(width: width)
+    } else {
+      // Hug content to the minimal width the layout needs.
+      content.fixedSize(horizontal: true, vertical: false)
+    }
   }
 
   private var dragGesture: some Gesture {

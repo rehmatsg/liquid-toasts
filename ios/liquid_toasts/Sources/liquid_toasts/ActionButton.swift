@@ -16,9 +16,9 @@ struct ActionButton: View {
       Text(action.label)
         .font(.system(.subheadline, design: .rounded).weight(.semibold))
         .foregroundStyle(color)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .background(color.opacity(scheme == .dark ? 0.22 : 0.14), in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(color.opacity(scheme == .dark ? 0.24 : 0.15), in: Capsule())
         .contentShape(Capsule())
     }
     .buttonStyle(.plain)

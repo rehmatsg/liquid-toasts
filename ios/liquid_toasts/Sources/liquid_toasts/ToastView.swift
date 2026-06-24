@@ -10,6 +10,7 @@ struct ToastView: View {
 
   @Environment(\.colorScheme) private var scheme
   @State private var dragOffset: CGFloat = 0
+  @State private var isDragging = false
 
   private var shape: AnyShape {
     // Fully rounded (capsule) by default; a custom cornerRadius opts into a
@@ -74,23 +75,35 @@ struct ToastView: View {
       .contentShape(shape)
       .offset(y: dragOffset)
       .highPriorityGesture(dragGesture)
-      .onTapGesture { onTapBody() }
+      .onTapGesture {
+        Haptics.impact(.light)
+        onTapBody()
+      }
       .accessibilityElement(children: .combine)
       .accessibilityLabel(toast.accessibilityText)
       .accessibilityAddTraits(.isStaticText)
   }
 
   private var dragGesture: some Gesture {
-    DragGesture(minimumDistance: 8)
+    DragGesture(minimumDistance: 6)
       .onChanged { value in
+        if !isDragging {
+          isDragging = true
+          Haptics.impact(.light) // drag begins
+        }
         let dy = value.translation.height
         let towardEdge = toast.position.isBottom ? dy > 0 : dy < 0
         dragOffset = towardEdge ? dy : dy * 0.35 // rubber-band the wrong way
       }
       .onEnded { value in
+        isDragging = false
         let dy = value.translation.height
+        // Velocity-aware: a quick flick dismisses even if the finger barely moved.
+        let predicted = value.predictedEndTranslation.height
         let towardEdge = toast.position.isBottom ? dy > 0 : dy < 0
-        if towardEdge && abs(dy) > 24 {
+        let flick = toast.position.isBottom ? predicted > 140 : predicted < -140
+        if towardEdge && (abs(dy) > 28 || flick) {
+          Haptics.impact(.medium) // commit
           onSwipe()
         } else {
           withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {

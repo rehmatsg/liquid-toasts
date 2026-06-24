@@ -33,6 +33,8 @@ final class ToastManager: ObservableObject {
   private var wasEmpty = true
 
   private var stackSpring: Animation { .spring(response: 0.42, dampingFraction: 0.82) }
+  /// Lower damping so a top-center toast "pops" out of the Dynamic Island.
+  private var islandSpring: Animation { .spring(response: 0.5, dampingFraction: 0.7) }
 
   // MARK: - Present / update / dismiss
 
@@ -55,7 +57,8 @@ final class ToastManager: ObservableObject {
     }
 
     model.isIslandInsertion = model.position == .topCenter && model.useDynamicIslandOrigin
-    withAnimation(stackSpring) {
+    let revealsFromIsland = model.isIslandInsertion && hasDynamicIsland
+    withAnimation(revealsFromIsland ? islandSpring : stackSpring) {
       toasts.append(model)
     }
     enforcePositionLimit(model.position)
@@ -225,10 +228,10 @@ final class ToastManager: ObservableObject {
   private func fireHaptic(_ model: ToastModel) {
     switch model.haptic {
     case .none: break
-    case .success: UINotificationFeedbackGenerator().notificationOccurred(.success)
-    case .warning: UINotificationFeedbackGenerator().notificationOccurred(.warning)
-    case .error: UINotificationFeedbackGenerator().notificationOccurred(.error)
-    case .selection: UISelectionFeedbackGenerator().selectionChanged()
+    case .success: Haptics.notify(.success)
+    case .warning: Haptics.notify(.warning)
+    case .error: Haptics.notify(.error)
+    case .selection: Haptics.selection()
     }
   }
 

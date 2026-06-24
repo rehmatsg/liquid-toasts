@@ -21,7 +21,20 @@ struct ActionButton: View {
         .background(color.opacity(scheme == .dark ? 0.24 : 0.15), in: Capsule())
         .contentShape(Capsule())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(PressableButtonStyle())
     .fixedSize()
+  }
+}
+
+/// Shrinks the button under the finger and fires a light haptic on the
+/// press-down edge — the premium "real button" feel.
+struct PressableButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .scaleEffect(configuration.isPressed ? 0.92 : 1)
+      .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+      .onChange(of: configuration.isPressed) { _, pressed in
+        if pressed { Haptics.impact(.light) }
+      }
   }
 }

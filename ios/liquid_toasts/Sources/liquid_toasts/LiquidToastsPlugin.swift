@@ -1,19 +1,117 @@
 import Flutter
 import UIKit
 
-public class LiquidToastsPlugin: NSObject, FlutterPlugin {
+/// Thin bridge between Flutter and the native overlay. Decodes method-channel
+/// arguments into [ToastModel]s, drives [ToastManager], and streams lifecycle
+/// events back over the event channel. Flutter invokes channel handlers on the
+/// main thread, so UI is touched directly (no actor hop).
+public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
+  private var eventSink: FlutterEventSink?
+  private var session: String?
+
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "liquid_toasts", binaryMessenger: registrar.messenger())
+    let methods = FlutterMethodChannel(name: "liquid_toasts", binaryMessenger: registrar.messenger())
+    let events = FlutterEventChannel(name: "liquid_toasts/events", binaryMessenger: registrar.messenger())
     let instance = LiquidToastsPlugin()
-    registrar.addMethodCallDelegate(instance, channel: channel)
+    registrar.addMethodCallDelegate(instance, channel: methods)
+    events.setStreamHandler(instance)
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    MainActor.assumeIsolated {
+      route(call, result: result)
+    }
+  }
+
+  @MainActor
+  private func route(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let host = ToastOverlayHost.shared
+    let manager = host.manager
+    // Keep the event sink wired to this plugin instance.
+    manager.onEvent = { [weak self] payload in self?.eventSink?(payload) }
+
+    let args = call.arguments as? [String: Any]
+
     switch call.method {
+    case "handshake":
+      session = args?["session"] as? String
+      manager.flushAll()
+      host.ensureInstalled()
+      result(nil)
+
+    case "configure":
+      if let value = ltInt(args?["maxVisible"]) { manager.maxVisible = max(1, value) }
+      if let value = ltInt(args?["maxQueue"]) { manager.maxQueue = max(1, value) }
+      if let policy = args?["dropPolicy"] as? String { manager.dropOldest = policy != "dropNewest" }
+      result(nil)
+
+    case "show":
+      host.ensureInstalled()
+      guard let model = ToastModel(arguments: args) else {
+        result(FlutterError(code: "INVALID_ARGS", message: "show: missing id/message", details: nil))
+        return
+      }
+      manager.present(model)
+      let diUsed = model.isIslandInsertion
+        && DynamicIslandGeometry.hasDynamicIsland(ToastOverlayHost.activeWindow())
+      result([
+        "id": model.id,
+        "accepted": true,
+        "capability": [
+          "dynamicIslandOriginUsed": diUsed,
+          "glassMode": glassMode(),
+        ],
+      ])
+
+    case "update":
+      guard let id = args?["id"] as? String, let model = ToastModel(arguments: args) else {
+        result(FlutterError(code: "INVALID_ARGS", message: "update: missing id/message", details: nil))
+        return
+      }
+      let applied = manager.update(id: id, with: model)
+      var res: [String: Any] = ["id": id, "applied": applied]
+      if !applied { res["reason"] = "unknown_id" }
+      result(res)
+
+    case "dismiss":
+      guard let id = args?["id"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "dismiss: missing id", details: nil))
+        return
+      }
+      let ok = manager.dismiss(id: id, reason: "manual")
+      var res: [String: Any] = ["id": id, "dismissed": ok]
+      if !ok { res["reason"] = "unknown_id" }
+      result(res)
+
+    case "dismissAll":
+      let reason = (args?["reason"] as? String) ?? "dismissAll"
+      result(["dismissedIds": manager.dismissAll(reason: reason)])
+
+    case "queryGeometry":
+      result(DynamicIslandGeometry.geometrySnapshot(ToastOverlayHost.activeWindow()))
+
     case "getPlatformVersion":
       result("iOS " + UIDevice.current.systemVersion)
+
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func glassMode() -> String {
+    if #available(iOS 26.0, *) { return "liquidGlass" }
+    return "frosted"
+  }
+
+  // MARK: - FlutterStreamHandler
+
+  public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    eventSink = events
+    return nil
+  }
+
+  public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
   }
 }

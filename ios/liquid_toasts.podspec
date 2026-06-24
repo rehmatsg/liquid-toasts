@@ -22,7 +22,7 @@ semantic styles, and a single rounded action button — all without a BuildConte
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
-  s.swift_version = '5.9'
+  s.swift_version = '5.0'
 
   # The plugin ships a privacy manifest. It uses only public APIs and declares
   # no required-reason API usage or data collection.

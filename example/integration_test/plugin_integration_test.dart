@@ -1,24 +1,28 @@
-// This is a basic Flutter integration test.
+// Basic integration test running against the real iOS plugin.
 //
-// Since integration tests run in a full Flutter application, they can interact
-// with the host side of a plugin implementation, unlike Dart unit tests.
-//
-// For more information about Flutter integration tests, please see
-// https://flutter.dev/to/integration-testing
+// See https://flutter.dev/to/integration-testing
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-
 import 'package:liquid_toasts/liquid_toasts.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final LiquidToasts plugin = LiquidToasts();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+  testWidgets('queryGeometry returns a device snapshot', (tester) async {
+    final geometry = await LiquidToasts.queryGeometry();
+    expect(geometry, isNotEmpty);
+    expect(geometry['glassMode'], isA<String>());
+  });
+
+  testWidgets('show then dismiss completes the handle', (tester) async {
+    final handle = await LiquidToasts.success('Integration test');
+    expect(handle.id, isNotEmpty);
+    await handle.dismiss();
+    final reason = await handle.onDismissed.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => ToastDismissReason.unknown,
+    );
+    expect(reason, isNot(ToastDismissReason.unknown));
   });
 }

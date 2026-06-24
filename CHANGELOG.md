@@ -9,8 +9,11 @@ Initial release — iOS support.
   slide-in fallback elsewhere and on notch / home-button devices.
 * Loading toasts tied to a `Future` — spinner → success/error — that return the
   value / rethrow the error to the caller.
-* Depth stacking, semantic styles (success/error/warning/info), SF Symbol icons,
-  and a single role-colored action button.
+* Per-position vertical stacking (max 5; overflow fades/blurs out in place),
+  semantic styles (success/error/warning/info), SF Symbol icons with
+  customizable adaptive colors and optional animated symbol effects (bounce,
+  pulse, wiggle, rotate, breathe, variableColor, iOS-26 drawOn), and a single
+  role-colored action button.
 * Production extras: tap-to-dismiss, replace-by-key, determinate progress,
   haptics, accessibility (VoiceOver + Reduce Motion), app-wide defaults, and
   active-toast introspection.

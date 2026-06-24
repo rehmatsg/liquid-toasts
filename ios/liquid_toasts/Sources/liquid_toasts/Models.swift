@@ -52,6 +52,10 @@ enum ToastContentState: String { case `static`, loading }
 
 enum ToastHapticKind: String { case none, success, warning, error, selection }
 
+enum ToastSymbolEffect: String {
+  case none, bounce, pulse, wiggle, rotate, breathe, variableColor, drawOn
+}
+
 enum ToastPositionModel: String {
   case topCenter, topLeading, topTrailing
   case center
@@ -135,6 +139,7 @@ struct ToastStyleModel {
   var iconColor: AdaptiveColor?
   var glass: ToastGlassIntent?
   var cornerRadius: CGFloat?
+  var symbolEffect: ToastSymbolEffect = .none
 
   init?(_ value: Any?) {
     guard let map = value as? [String: Any] else { return nil }
@@ -143,6 +148,8 @@ struct ToastStyleModel {
     iconColor = AdaptiveColor(map["iconColor"])
     glass = (map["glass"] as? String).flatMap(ToastGlassIntent.init(rawValue:))
     if let cr = ltDouble(map["cornerRadius"]) { cornerRadius = CGFloat(cr) }
+    symbolEffect = (map["symbolEffect"] as? String)
+      .flatMap(ToastSymbolEffect.init(rawValue:)) ?? .none
   }
 }
 

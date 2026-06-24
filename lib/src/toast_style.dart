@@ -15,6 +15,25 @@ enum ToastGlass { adaptive, liquid, frosted, solid, none }
 /// toast's [ToastSemantic] when left unset.
 enum ToastHaptic { none, success, warning, error, selection }
 
+/// An animated SF Symbol effect applied to the toast's icon.
+///
+/// - [bounce] fires once when the icon appears.
+/// - [pulse], [variableColor] loop while visible (iOS 17+).
+/// - [wiggle], [rotate], [breathe] loop while visible (iOS 18+; fall back to
+///   [pulse] on iOS 17).
+/// - [drawOn] traces the symbol on as it appears (SF Symbols 7 / iOS 26+; falls
+///   back to [bounce] below). Best on stroke-based symbols.
+enum ToastSymbolEffect {
+  none,
+  bounce,
+  pulse,
+  wiggle,
+  rotate,
+  breathe,
+  variableColor,
+  drawOn,
+}
+
 /// A color that adapts to light/dark appearance without a [BuildContext].
 ///
 /// Pass one [Color] for a frozen (non-adaptive) value, or supply [dark] to get
@@ -53,6 +72,7 @@ class ToastStyleOverride {
     this.iconColor,
     this.glass,
     this.cornerRadius,
+    this.symbolEffect = ToastSymbolEffect.none,
   });
 
   /// Accent / surface tint. The toast's glass surface stays neutral for the
@@ -72,11 +92,16 @@ class ToastStyleOverride {
   /// for multi-line).
   final double? cornerRadius;
 
+  /// Animated effect applied to the icon's SF Symbol.
+  final ToastSymbolEffect symbolEffect;
+
   Map<String, Object?> toMap() => {
         if (tint != null) 'tint': tint!.toMap(),
         if (foreground != null) 'foreground': foreground!.toMap(),
         if (iconColor != null) 'iconColor': iconColor!.toMap(),
         if (glass != null) 'glass': glass!.name,
         if (cornerRadius != null) 'cornerRadius': cornerRadius,
+        if (symbolEffect != ToastSymbolEffect.none)
+          'symbolEffect': symbolEffect.name,
       };
 }

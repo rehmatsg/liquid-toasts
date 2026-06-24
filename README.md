@@ -24,7 +24,9 @@ stacking, and async **loading** toasts. No `BuildContext` required.
   newest pushes the rest along, and overflow scales + fades + blurs away in
   place.
 - **Semantic styles** — `success` / `error` / `warning` / `info`, each
-  overridable. SF Symbols by name.
+  overridable. SF Symbols by name, with customizable (adaptive) icon colors.
+- **Animated icons** — opt into an SF Symbol effect (`bounce`, `pulse`,
+  `wiggle`, `rotate`, `breathe`, `variableColor`, or iOS-26 `drawOn`) per toast.
 - **One action button** — fully rounded, color derived from a semantic role.
 - **Production extras** — tap-to-dismiss, replace-by-key, determinate progress,
   haptics, accessibility (VoiceOver + Reduce Motion), app-wide defaults, and

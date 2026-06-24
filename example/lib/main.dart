@@ -30,6 +30,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _replaceCount = 0;
 
+  void _animatedIcon(ToastSymbolEffect effect, String icon, String label) {
+    LiquidToasts.show(Toast(
+      message: label,
+      icon: icon,
+      style: ToastStyleOverride(symbolEffect: effect),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
   Future<String> _fakeWork({bool fail = false}) async {
     await Future<void>.delayed(const Duration(milliseconds: 1800));
     if (fail) throw Exception('Network unreachable');
@@ -128,6 +137,12 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           _Btn('Progress upload', _runProgress),
+          const _Section('Animated icons'),
+          _Btn('Bounce', () => _animatedIcon(ToastSymbolEffect.bounce, 'bell.fill', 'Bounce')),
+          _Btn('Pulse', () => _animatedIcon(ToastSymbolEffect.pulse, 'heart.fill', 'Pulse')),
+          _Btn('Rotate', () => _animatedIcon(ToastSymbolEffect.rotate, 'arrow.triangle.2.circlepath', 'Rotate')),
+          _Btn('Variable color', () => _animatedIcon(ToastSymbolEffect.variableColor, 'wifi', 'Variable color')),
+          _Btn('Draw on (iOS 26)', () => _animatedIcon(ToastSymbolEffect.drawOn, 'checkmark.seal', 'Draw on')),
           const _Section('Bulk'),
           _Btn('Dismiss all', () => LiquidToasts.dismissAll()),
         ],

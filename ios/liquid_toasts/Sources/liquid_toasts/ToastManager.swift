@@ -17,7 +17,9 @@ final class ToastManager: ObservableObject {
   /// the window). Drives the island-origin transition.
   @Published var hasDynamicIsland: Bool = false
 
-  var maxVisible: Int = 3
+  /// Max toasts shown per position (a vertical list); the oldest is dismissed
+  /// when a new toast would exceed this.
+  var maxVisible: Int = 5
   var maxQueue: Int = 8
   var dropOldest: Bool = true
 
@@ -55,8 +57,8 @@ final class ToastManager: ObservableObject {
     model.isIslandInsertion = model.position == .topCenter && model.useDynamicIslandOrigin
     withAnimation(stackSpring) {
       toasts.append(model)
-      enforceQueueLimit()
     }
+    enforcePositionLimit(model.position)
     arm(model)
     fireHaptic(model)
     emitShown(model)
@@ -69,14 +71,10 @@ final class ToastManager: ObservableObject {
     var updated = toasts[index]
     updated.applyContent(from: toast)
     cancelDeadline(id)
+    // Morph in place — the list keeps every toast visible, so there is no need
+    // to reorder a resolving toast.
     withAnimation(stackSpring) {
       toasts[index] = updated
-      // Auto-promote a resolving (loading -> success/error) toast to the front
-      // so its outcome is actually seen even if it was behind others.
-      if index != toasts.count - 1 {
-        let moved = toasts.remove(at: index)
-        toasts.append(moved)
-      }
     }
     arm(updated)
     fireHaptic(updated)
@@ -156,12 +154,17 @@ final class ToastManager: ObservableObject {
     notifyEmpty()
   }
 
-  private func enforceQueueLimit() {
-    while toasts.count > maxQueue {
-      let removed = dropOldest ? toasts.removeFirst() : toasts.removeLast()
-      cancelDeadline(removed.id)
-      frames[removed.id] = nil
-      emitDismissed(removed.id, reason: "replaced")
+  /// Keeps at most `maxVisible` toasts per position, dismissing the oldest
+  /// (which sits at the tail of the list) so it fades/blurs out in place.
+  private func enforcePositionLimit(_ position: ToastPositionModel) {
+    let inPosition = toasts.filter { $0.position == position }
+    let overflow = inPosition.count - maxVisible
+    guard overflow > 0 else { return }
+    let victims = dropOldest
+      ? Array(inPosition.prefix(overflow)) // oldest first
+      : Array(inPosition.suffix(overflow))
+    for victim in victims {
+      teardown(id: victim.id, reason: "replaced")
     }
   }
 

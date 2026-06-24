@@ -20,8 +20,9 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 - **Loading lifecycle** — wrap a `Future`; show a spinner, then morph to
   success/error. The call **returns your value / rethrows your error**, so your
   app owns the outcome.
-- **Depth stacking** — queued toasts stack with the front fully visible and the
-  rest scaled + dimmed behind it.
+- **Vertical stacking** — each position is its own list (up to 5 toasts);
+  newest pushes the rest along, and overflow scales + fades + blurs away in
+  place.
 - **Semantic styles** — `success` / `error` / `warning` / `info`, each
   overridable. SF Symbols by name.
 - **One action button** — fully rounded, color derived from a semantic role.

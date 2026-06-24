@@ -17,7 +17,7 @@ class LiquidToastsConfig {
     this.defaultPosition = ToastPosition.topCenter,
     this.defaultDuration = const Duration(seconds: 3),
     this.defaultGlass = ToastGlass.adaptive,
-    this.maxVisible = 3,
+    this.maxVisible = 5,
     this.maxQueue = 8,
     this.dropPolicy = ToastDropPolicy.dropOldest,
   });
@@ -26,10 +26,11 @@ class LiquidToastsConfig {
   final Duration defaultDuration;
   final ToastGlass defaultGlass;
 
-  /// Max toasts shown with depth transforms at once (others queue behind).
+  /// Max toasts shown per position (a vertical list). When a new toast would
+  /// exceed this, the oldest in that position is dismissed.
   final int maxVisible;
 
-  /// Max total toasts (visible + queued) before [dropPolicy] kicks in.
+  /// Reserved upper bound on total tracked toasts.
   final int maxQueue;
 
   final ToastDropPolicy dropPolicy;

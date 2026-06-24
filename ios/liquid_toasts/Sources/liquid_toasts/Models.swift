@@ -71,6 +71,14 @@ enum ToastPositionModel: String {
     case .bottomTrailing: return .bottomTrailing
     }
   }
+
+  var horizontalAlignment: HorizontalAlignment {
+    switch self {
+    case .topLeading, .bottomLeading: return .leading
+    case .topTrailing, .bottomTrailing: return .trailing
+    default: return .center
+    }
+  }
 }
 
 enum ActionRole: String {

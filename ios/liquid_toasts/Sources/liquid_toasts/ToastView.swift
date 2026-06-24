@@ -4,10 +4,6 @@ import SwiftUI
 /// action, on an adaptive glass surface, with swipe- and tap-to-dismiss.
 struct ToastView: View {
   let toast: ToastModel
-  /// When set, the toast renders at this fixed width instead of hugging its
-  /// content — used for peeking cards behind the front so a stack reads as
-  /// uniform cards. The front (active) toast always hugs (width == nil).
-  var width: CGFloat? = nil
   let onTapBody: () -> Void
   let onAction: () -> Void
   let onSwipe: () -> Void
@@ -70,7 +66,9 @@ struct ToastView: View {
   }
 
   var body: some View {
-    sized
+    content
+      // Hug content to the minimal width the layout needs.
+      .fixedSize(horizontal: true, vertical: false)
       .background { GlassBackground(shape: shape) }
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
       .contentShape(shape)
@@ -80,16 +78,6 @@ struct ToastView: View {
       .accessibilityElement(children: .combine)
       .accessibilityLabel(toast.accessibilityText)
       .accessibilityAddTraits(.isStaticText)
-  }
-
-  @ViewBuilder
-  private var sized: some View {
-    if let width {
-      content.frame(width: width)
-    } else {
-      // Hug content to the minimal width the layout needs.
-      content.fixedSize(horizontal: true, vertical: false)
-    }
   }
 
   private var dragGesture: some Gesture {

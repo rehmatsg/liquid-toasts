@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Reports each interactive toast's window-space frame up to the manager, so the
-/// overlay host can hit-test for pass-through.
+/// Reports each toast's window-space frame up to the manager, so the overlay
+/// host can hit-test for pass-through.
 struct ToastFramePreferenceKey: PreferenceKey {
   static var defaultValue: [String: CGRect] = [:]
   static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
@@ -9,16 +9,17 @@ struct ToastFramePreferenceKey: PreferenceKey {
   }
 }
 
-/// Root SwiftUI view hosted in the overlay. Lays the queue out as a depth stack
-/// (front fully visible; ones behind peek out, scaled + dimmed), drives the
-/// entrance/exit transitions (Dynamic Island reveal for top-center, slide-in
-/// otherwise), and respects Reduce Motion.
+/// Root SwiftUI view hosted in the overlay. Each position is an independent
+/// **vertical list**: top positions grow downward (newest on top, pushing older
+/// ones down); bottom positions grow upward (newest at the bottom). Toasts that
+/// fall out of the list scale + fade + blur away in place. Respects Reduce
+/// Motion. Top-center toasts on a Dynamic Island device reveal from the pill.
 struct ToastContainerView: View {
   @ObservedObject var manager: ToastManager
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   /// Toasts grouped by position, preserving insertion order — each position is
-  /// its own independent stack so a bottom toast never disturbs the top stack.
+  /// its own independent list so a bottom toast never disturbs the top list.
   private var groups: [(position: ToastPositionModel, toasts: [ToastModel])] {
     var order: [ToastPositionModel] = []
     var map: [ToastPositionModel: [ToastModel]] = [:]
@@ -36,7 +37,7 @@ struct ToastContainerView: View {
     ZStack {
       Color.clear
       ForEach(groups, id: \.position) { group in
-        positionedStack(position: group.position, toasts: group.toasts)
+        positionedList(position: group.position, toasts: group.toasts)
       }
     }
     .animation(motion, value: manager.toasts.map(\.id))
@@ -46,59 +47,32 @@ struct ToastContainerView: View {
   }
 
   @ViewBuilder
-  private func positionedStack(position: ToastPositionModel, toasts: [ToastModel]) -> some View {
-    // Peeking cards adopt the front card's measured width so the stack reads as
-    // uniform cards even though each toast hugs its own content when frontmost.
-    let frontWidth = toasts.last.flatMap { manager.frames[$0.id]?.width }
-    ZStack(alignment: position.alignment) {
-      ForEach(Array(toasts.enumerated()), id: \.element.id) { index, toast in
-        let depth = (toasts.count - 1) - index
-        layer(toast: toast, depth: depth, index: index, frontWidth: frontWidth)
+  private func positionedList(position: ToastPositionModel, toasts: [ToastModel]) -> some View {
+    // Top lists show newest first (on top); bottom lists show newest last.
+    let ordered = position.isBottom ? toasts : toasts.reversed()
+    VStack(alignment: position.horizontalAlignment, spacing: 10) {
+      ForEach(ordered, id: \.id) { toast in
+        ToastView(
+          toast: toast,
+          onTapBody: { manager.handleBodyTap(id: toast.id) },
+          onAction: { manager.handleAction(id: toast.id) },
+          onSwipe: { manager.handleSwipe(id: toast.id) }
+        )
+        .background(
+          GeometryReader { geo in
+            Color.clear.preference(
+              key: ToastFramePreferenceKey.self,
+              value: [toast.id: geo.frame(in: .global)]
+            )
+          }
+        )
+        .transition(transition(for: toast))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: position.alignment)
     .padding(.top, 8)
     .padding(.bottom, 8)
     .padding(.horizontal, 12)
-  }
-
-  @ViewBuilder
-  private func layer(toast: ToastModel, depth: Int, index: Int, frontWidth: CGFloat?) -> some View {
-    let isFront = depth == 0
-    let capped = min(depth, manager.maxVisible)
-    let scale = 1 - 0.05 * CGFloat(capped)
-    let opacity: Double = depth == 0
-      ? 1
-      : (depth > manager.maxVisible ? 0 : 1 - 0.2 * Double(capped))
-    let offset = stackOffsetY(depth: capped, isTop: toast.position.isTop)
-
-    ToastView(
-      toast: toast,
-      width: isFront ? nil : frontWidth,
-      onTapBody: { manager.handleBodyTap(id: toast.id) },
-      onAction: { manager.handleAction(id: toast.id) },
-      onSwipe: { manager.handleSwipe(id: toast.id) }
-    )
-    .allowsHitTesting(isFront)
-    .background(
-      GeometryReader { geo in
-        Color.clear.preference(
-          key: ToastFramePreferenceKey.self,
-          value: isFront ? [toast.id: geo.frame(in: .global)] : [:]
-        )
-      }
-    )
-    .scaleEffect(scale, anchor: toast.position.isTop ? .top : .bottom)
-    .offset(y: offset)
-    .opacity(opacity)
-    .zIndex(Double(index))
-    .accessibilityHidden(!isFront)
-    .transition(transition(for: toast))
-  }
-
-  private func stackOffsetY(depth: Int, isTop: Bool) -> CGFloat {
-    let magnitude = 13 * CGFloat(depth)
-    return isTop ? magnitude : -magnitude
   }
 
   private var motion: Animation? {
@@ -109,20 +83,31 @@ struct ToastContainerView: View {
 
   private func transition(for toast: ToastModel) -> AnyTransition {
     if reduceMotion { return .opacity }
-    if toast.isIslandInsertion && toast.position == .topCenter && manager.hasDynamicIsland {
-      return .asymmetric(insertion: .islandReveal, removal: .stackEdge(top: true))
-    }
-    return .stackEdge(top: toast.position.isTop)
+    let insertion: AnyTransition =
+      (toast.isIslandInsertion && toast.position == .topCenter && manager.hasDynamicIsland)
+        ? .islandReveal
+        : .materialize(top: toast.position.isTop)
+    return .asymmetric(insertion: insertion, removal: .fadeBlurOut)
   }
 }
 
 // MARK: - Transitions
 
 extension AnyTransition {
-  static func stackEdge(top: Bool) -> AnyTransition {
+  /// Entrance: a small drop-in from the anchored edge with a soft blur.
+  static func materialize(top: Bool) -> AnyTransition {
     .modifier(
-      active: StackEdgeModifier(y: top ? -90 : 90, scale: 0.85, opacity: 0),
-      identity: StackEdgeModifier(y: 0, scale: 1, opacity: 1)
+      active: MaterializeModifier(y: top ? -18 : 18, scale: 0.94, opacity: 0, blur: 6),
+      identity: MaterializeModifier(y: 0, scale: 1, opacity: 1, blur: 0)
+    )
+  }
+
+  /// Exit: scale + fade + blur away **in place** (no offset) — used both for a
+  /// dismissed toast and for one pushed out of the list.
+  static var fadeBlurOut: AnyTransition {
+    .modifier(
+      active: MaterializeModifier(y: 0, scale: 0.86, opacity: 0, blur: 9),
+      identity: MaterializeModifier(y: 0, scale: 1, opacity: 1, blur: 0)
     )
   }
 
@@ -134,12 +119,17 @@ extension AnyTransition {
   }
 }
 
-private struct StackEdgeModifier: ViewModifier {
+private struct MaterializeModifier: ViewModifier {
   let y: CGFloat
   let scale: CGFloat
   let opacity: Double
+  let blur: CGFloat
   func body(content: Content) -> some View {
-    content.opacity(opacity).scaleEffect(scale).offset(y: y)
+    content
+      .opacity(opacity)
+      .scaleEffect(scale)
+      .offset(y: y)
+      .blur(radius: blur)
   }
 }
 

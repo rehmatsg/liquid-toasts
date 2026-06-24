@@ -15,6 +15,12 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     let instance = LiquidToastsPlugin()
     registrar.addMethodCallDelegate(instance, channel: methods)
     events.setStreamHandler(instance)
+    // Install the (empty) overlay eagerly so SwiftUI has rendered the container
+    // before the first `show` — otherwise the first toast appears as initial
+    // content and skips its entrance transition.
+    MainActor.assumeIsolated {
+      ToastOverlayHost.shared.ensureInstalled()
+    }
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

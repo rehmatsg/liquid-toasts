@@ -29,9 +29,18 @@ struct ToastView: View {
   /// the button sits with a uniform margin on its top / bottom / right edges.
   private var trailingPadding: CGFloat { toast.action == nil ? 16 : 11 }
 
+  /// Whether a leading glyph (spinner or SF Symbol) will render. When false the
+  /// icon is dropped from the row entirely — slot and spacing — so a text-only
+  /// toast hugs its leading padding instead of reserving an empty icon box.
+  private var showsIcon: Bool {
+    toast.state == .loading || toast.resolvedSymbol != nil
+  }
+
   private var content: some View {
     HStack(spacing: 12) {
-      IconView(toast: toast)
+      if showsIcon {
+        IconView(toast: toast)
+      }
 
       VStack(alignment: .leading, spacing: 2) {
         if let title = toast.title, !title.isEmpty {

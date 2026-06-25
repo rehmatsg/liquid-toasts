@@ -1,11 +1,39 @@
 # liquid_toasts
 
 Premium, **SwiftUI-native** toasts for Flutter — rendered above your app with
-adaptive **Liquid Glass**, a **Dynamic Island origin** animation, depth
+adaptive **Liquid Glass**, a springy slide-in entrance, per-position vertical
 stacking, and async **loading** toasts. No `BuildContext` required.
 
 > iOS is supported today. Android is on the roadmap; the Dart API and wire
 > protocol are platform-neutral so the same surface will light up on Android.
+
+## Showcase
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/stacking.mp4" controls width="100%"></video><br/>
+      <sub><b>Stacking</b> — notifications slide in with a small delay, then drain</sub>
+    </td>
+    <td width="50%" align="center">
+      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/variable-color.mp4" controls width="100%"></video><br/>
+      <sub><b>Animated SF Symbols</b> — e.g. variable-color Wi-Fi</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/progress.mp4" controls width="100%"></video><br/>
+      <sub><b>Progress</b> — determinate upload</sub>
+    </td>
+    <td width="50%" align="center">
+      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/action.mp4" controls width="100%"></video><br/>
+      <sub><b>Action button</b> — inline Undo</sub>
+    </td>
+  </tr>
+</table>
+
+> Recorded on the iOS 26 simulator. If a clip doesn't play inline, click it to
+> open the file.
 
 ## Highlights
 
@@ -14,9 +42,8 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 - **Adaptive Liquid Glass** — real `glassEffect` on iOS 26+, a frosted
   `.ultraThinMaterial` fallback on iOS 17–25, and an opaque surface under
   *Reduce Transparency*.
-- **Dynamic Island origin** — top-center toasts extrude from the Dynamic Island
-  on supported devices; everything else slides in. (Public APIs only — no
-  private `_exclusionArea`.)
+- **Springy entrance** — toasts slide in from the nearest edge (down from the
+  top, up from the bottom) with a fade + scale, and fade + blur away in place.
 - **Loading lifecycle** — wrap a `Future`; show a spinner, then morph to
   success/error. The call **returns your value / rethrows your error**, so your
   app owns the outcome.
@@ -101,7 +128,7 @@ final reason = await handle.onDismissed; // always completes
 ### Positioning, replace-by-key, progress
 
 ```dart
-// Bottom toast (no Dynamic Island origin off top-center)
+// Bottom toast
 LiquidToasts.show(const Toast(
   message: 'Copied link',
   icon: 'link',

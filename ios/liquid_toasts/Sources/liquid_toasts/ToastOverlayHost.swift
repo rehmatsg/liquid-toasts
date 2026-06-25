@@ -79,9 +79,9 @@ final class ToastOverlayHost {
     refreshGeometry()
   }
 
-  /// Recomputes device geometry (Dynamic Island presence) onto the manager.
+  /// Recomputes device geometry (top safe-area inset) onto the manager.
   func refreshGeometry() {
-    manager.hasDynamicIsland = DynamicIslandGeometry.hasDynamicIsland(Self.activeWindow())
+    manager.topSafeArea = Self.activeWindow()?.safeAreaInsets.top ?? 0
   }
 
   /// Keeps the overlay frontmost if the app later adds sibling views.

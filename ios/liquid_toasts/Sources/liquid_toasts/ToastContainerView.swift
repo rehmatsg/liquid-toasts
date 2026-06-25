@@ -11,9 +11,9 @@ struct ToastFramePreferenceKey: PreferenceKey {
 
 /// Root SwiftUI view hosted in the overlay. Each position is an independent
 /// **vertical list**: top positions grow downward (newest on top, pushing older
-/// ones down); bottom positions grow upward (newest at the bottom). Toasts that
-/// fall out of the list scale + fade + blur away in place. Respects Reduce
-/// Motion. Top-center toasts on a Dynamic Island device reveal from the pill.
+/// ones down); bottom positions grow upward (newest at the bottom). Toasts slide
+/// in (~half the top safe-area inset) with a fade + scale, and fade + blur away
+/// in place on exit. Respects Reduce Motion.
 struct ToastContainerView: View {
   @ObservedObject var manager: ToastManager
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -52,21 +52,32 @@ struct ToastContainerView: View {
     let ordered = position.isBottom ? toasts : toasts.reversed()
     VStack(alignment: position.horizontalAlignment, spacing: 10) {
       ForEach(ordered, id: \.id) { toast in
-        ToastView(
-          toast: toast,
-          onTapBody: { manager.handleBodyTap(id: toast.id) },
-          onAction: { manager.handleAction(id: toast.id) },
-          onSwipe: { manager.handleSwipe(id: toast.id) }
-        )
-        .background(
-          GeometryReader { geo in
-            Color.clear.preference(
-              key: ToastFramePreferenceKey.self,
-              value: [toast.id: geo.frame(in: .global)]
-            )
-          }
-        )
-        .transition(transition(for: toast))
+        EntranceView(
+          top: toast.position.isTop,
+          distance: max(16, manager.topSafeArea * 0.5)
+        ) {
+          ToastView(
+            toast: toast,
+            onTapBody: { manager.handleBodyTap(id: toast.id) },
+            onAction: { manager.handleAction(id: toast.id) },
+            onSwipe: { manager.handleSwipe(id: toast.id) }
+          )
+          .background(
+            GeometryReader { geo in
+              Color.clear.preference(
+                key: ToastFramePreferenceKey.self,
+                value: [toast.id: geo.frame(in: .global)]
+              )
+            }
+          )
+        }
+        // Entrance is driven by EntranceView's onAppear so even the first toast
+        // (before the container has a prior render) animates. Only removal uses
+        // a SwiftUI transition.
+        .transition(.asymmetric(
+          insertion: .identity,
+          removal: reduceMotion ? .opacity : .fadeBlurOut
+        ))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: position.alignment)
@@ -80,47 +91,58 @@ struct ToastContainerView: View {
       ? .easeInOut(duration: 0.2)
       : .spring(response: 0.42, dampingFraction: 0.82)
   }
+}
 
-  private func transition(for toast: ToastModel) -> AnyTransition {
-    if reduceMotion { return .opacity }
-    let insertion: AnyTransition =
-      (toast.isIslandInsertion && toast.position == .topCenter && manager.hasDynamicIsland)
-        ? .islandReveal
-        : .materialize(top: toast.position.isTop)
-    return .asymmetric(insertion: insertion, removal: .fadeBlurOut)
+// MARK: - Entrance
+
+/// Slides a toast in from `distance` away (down for top, up for bottom) while
+/// fading + scaling up. Driven by `onAppear` state (not a SwiftUI transition) so
+/// even the very first toast — before the container has a prior render — animates.
+private struct EntranceView<Content: View>: View {
+  let top: Bool
+  let distance: CGFloat
+  let content: Content
+
+  init(top: Bool, distance: CGFloat, @ViewBuilder content: () -> Content) {
+    self.top = top
+    self.distance = distance
+    self.content = content()
+  }
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var shown = false
+
+  var body: some View {
+    let active = !shown && !reduceMotion
+    content
+      .opacity(active ? 0 : 1)
+      .scaleEffect(active ? 0.9 : 1)
+      .offset(y: active ? (top ? -distance : distance) : 0)
+      .onAppear {
+        if reduceMotion { shown = true; return }
+        // Defer one runloop so the view renders in the offset state first, then
+        // springs to identity (a same-transaction set would snap).
+        DispatchQueue.main.async {
+          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { shown = true }
+        }
+      }
   }
 }
 
 // MARK: - Transitions
 
 extension AnyTransition {
-  /// Entrance: a small drop-in from the anchored edge with a soft blur.
-  static func materialize(top: Bool) -> AnyTransition {
-    .modifier(
-      active: MaterializeModifier(y: top ? -18 : 18, scale: 0.94, opacity: 0, blur: 6),
-      identity: MaterializeModifier(y: 0, scale: 1, opacity: 1, blur: 0)
-    )
-  }
-
-  /// Exit: scale + fade + blur away **in place** (no offset) — used both for a
+  /// Exit: scale + fade + blur away **in place** (no offset) — used for a
   /// dismissed toast and for one pushed out of the list.
   static var fadeBlurOut: AnyTransition {
     .modifier(
-      active: MaterializeModifier(y: 0, scale: 0.86, opacity: 0, blur: 9),
-      identity: MaterializeModifier(y: 0, scale: 1, opacity: 1, blur: 0)
-    )
-  }
-
-  static var islandReveal: AnyTransition {
-    .modifier(
-      active: IslandRevealModifier(progress: 0),
-      identity: IslandRevealModifier(progress: 1)
+      active: FadeBlurModifier(scale: 0.86, opacity: 0, blur: 9),
+      identity: FadeBlurModifier(scale: 1, opacity: 1, blur: 0)
     )
   }
 }
 
-private struct MaterializeModifier: ViewModifier {
-  let y: CGFloat
+private struct FadeBlurModifier: ViewModifier {
   let scale: CGFloat
   let opacity: Double
   let blur: CGFloat
@@ -128,24 +150,6 @@ private struct MaterializeModifier: ViewModifier {
     content
       .opacity(opacity)
       .scaleEffect(scale)
-      .offset(y: y)
       .blur(radius: blur)
-  }
-}
-
-/// "Extruded from the pill" reveal: the toast is born collapsed and narrow at
-/// the island's bottom edge, then springs down to full size.
-private struct IslandRevealModifier: ViewModifier, Animatable {
-  var progress: Double
-  var animatableData: Double {
-    get { progress }
-    set { progress = newValue }
-  }
-  func body(content: Content) -> some View {
-    content
-      .scaleEffect(x: 0.35 + 0.65 * progress, y: 0.12 + 0.88 * progress, anchor: .top)
-      .offset(y: -22 * (1 - progress))
-      .opacity(progress)
-      .blur(radius: 8 * (1 - progress))
   }
 }

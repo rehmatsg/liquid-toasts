@@ -13,9 +13,9 @@ final class ToastManager: ObservableObject {
   /// SwiftUI layer and read by the overlay host's hit-test for pass-through.
   @Published var frames: [String: CGRect] = [:]
 
-  /// Whether the host device has a Dynamic Island (set by the overlay host from
-  /// the window). Drives the island-origin transition.
-  @Published var hasDynamicIsland: Bool = false
+  /// Top safe-area inset (set by the overlay host from the window). Drives the
+  /// entrance slide distance.
+  @Published var topSafeArea: CGFloat = 0
 
   /// Max toasts shown per position (a vertical list); the oldest is dismissed
   /// when a new toast would exceed this.
@@ -33,8 +33,6 @@ final class ToastManager: ObservableObject {
   private var wasEmpty = true
 
   private var stackSpring: Animation { .spring(response: 0.42, dampingFraction: 0.82) }
-  /// Lower damping so a top-center toast "pops" out of the Dynamic Island.
-  private var islandSpring: Animation { .spring(response: 0.5, dampingFraction: 0.7) }
 
   // MARK: - Present / update / dismiss
 
@@ -47,7 +45,6 @@ final class ToastManager: ObservableObject {
       let oldId = toasts[index].id
       cancelDeadline(oldId)
       frames[oldId] = nil
-      model.isIslandInsertion = false
       withAnimation(stackSpring) { toasts[index] = model }
       emitDismissed(oldId, reason: "replaced")
       arm(model)
@@ -56,9 +53,7 @@ final class ToastManager: ObservableObject {
       return
     }
 
-    model.isIslandInsertion = model.position == .topCenter && model.useDynamicIslandOrigin
-    let revealsFromIsland = model.isIslandInsertion && hasDynamicIsland
-    withAnimation(revealsFromIsland ? islandSpring : stackSpring) {
+    withAnimation(stackSpring) {
       toasts.append(model)
     }
     enforcePositionLimit(model.position)

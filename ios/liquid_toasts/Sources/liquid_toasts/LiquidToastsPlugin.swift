@@ -58,13 +58,11 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         return
       }
       manager.present(model)
-      let diUsed = model.isIslandInsertion
-        && DynamicIslandGeometry.hasDynamicIsland(ToastOverlayHost.activeWindow())
       result([
         "id": model.id,
         "accepted": true,
         "capability": [
-          "dynamicIslandOriginUsed": diUsed,
+          "dynamicIslandOriginUsed": false,
           "glassMode": glassMode(),
         ],
       ])

@@ -197,7 +197,6 @@ struct ToastModel: Identifiable {
 
   // Runtime-only
   var deadline: Date?
-  var isIslandInsertion: Bool = false
 
   init?(arguments: Any?) {
     guard let map = arguments as? [String: Any],

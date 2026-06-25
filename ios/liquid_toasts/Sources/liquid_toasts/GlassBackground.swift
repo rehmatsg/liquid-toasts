@@ -36,6 +36,13 @@ struct GlassBackground<S: Shape>: View {
       shape
         .fill(.clear)
         .glassEffect(.regular.tint(glassTint), in: shape)
+        // Explicit shadow: the entrance animates opacity/scale/offset on top of
+        // this glass, which forces SwiftUI to rasterize it and suppresses the
+        // glass's *system* ambient shadow mid-animation (it dips out, then snaps
+        // back on settle). Our own shadow is a normal primitive that fades and
+        // scales smoothly with the entrance, so the visible shadow stays
+        // continuous instead of flickering.
+        .shadow(color: .black.opacity(isDark ? 0.24 : 0.08), radius: 10, y: 4)
     } else {
       frosted(isDark: isDark)
     }

@@ -12,21 +12,41 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 <table>
   <tr>
     <td width="50%" align="center">
-      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/stacking.mp4" controls width="100%"></video><br/>
+      
+
+https://github.com/user-attachments/assets/35c34736-37f6-478c-911f-7d94a9234b13
+
+
+      <br/>
       <sub><b>Stacking</b> — notifications slide in with a small delay, then drain</sub>
     </td>
     <td width="50%" align="center">
-      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/variable-color.mp4" controls width="100%"></video><br/>
+    
+
+https://github.com/user-attachments/assets/3af9f57d-c4e9-4e44-9113-74d56a5e7e14
+
+
+      <br/>
       <sub><b>Animated SF Symbols</b> — e.g. variable-color Wi-Fi</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/progress.mp4" controls width="100%"></video><br/>
+      
+
+https://github.com/user-attachments/assets/4929a654-f2e2-437a-aa40-95209c7d7344
+
+
+      <br/>
       <sub><b>Progress</b> — determinate upload</sub>
     </td>
     <td width="50%" align="center">
-      <video src="https://github.com/rehmatsg/liquid-toasts/raw/main/assets/showcase/action.mp4" controls width="100%"></video><br/>
+    
+
+https://github.com/user-attachments/assets/fad24d65-6794-4289-a440-60576e57d40d
+
+
+      <br/>
       <sub><b>Action button</b> — inline Undo</sub>
     </td>
   </tr>

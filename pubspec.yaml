@@ -1,6 +1,6 @@
 name: liquid_toasts
-description: "Native iOS toasts for Flutter with adaptive Liquid Glass, a Dynamic Island origin, depth stacking, and async loading toasts — no BuildContext required."
-version: 0.0.1
+description: "Premium Flutter toasts: native adaptive Liquid Glass on iOS and a backdrop-blur overlay on Android, web and desktop. Depth stacking, async loading toasts, no BuildContext."
+version: 0.1.0
 homepage: https://github.com/rehmatsg/liquid-toasts
 repository: https://github.com/rehmatsg/liquid-toasts
 
@@ -36,11 +36,18 @@ flutter:
   # adding or updating assets for this project.
   plugin:
     platforms:
-      android:
-        package: com.rehmatsg.liquid_toasts
-        pluginClass: LiquidToastsPlugin
+      # iOS renders natively (Liquid Glass). Every other platform shares the
+      # Flutter-rendered OverlayLiquidToasts (Dart-only, no native code).
       ios:
         pluginClass: LiquidToastsPlugin
+      android:
+        dartPluginClass: OverlayLiquidToasts
+      macos:
+        dartPluginClass: OverlayLiquidToasts
+      linux:
+        dartPluginClass: OverlayLiquidToasts
+      windows:
+        dartPluginClass: OverlayLiquidToasts
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

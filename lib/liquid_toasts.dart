@@ -21,6 +21,7 @@ export 'src/toast_event.dart';
 export 'src/toast_handle.dart' show ToastHandle;
 export 'src/toast_position.dart';
 export 'src/toast_style.dart';
+export 'src/overlay/overlay_liquid_toasts.dart' show OverlayLiquidToasts;
 
 /// One live toast's Dart-side bookkeeping.
 class _Registration {

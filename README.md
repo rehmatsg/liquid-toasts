@@ -12,48 +12,25 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 <table>
   <tr>
     <td width="50%" align="center">
-      
-
-https://github.com/user-attachments/assets/35c34736-37f6-478c-911f-7d94a9234b13
-
-
-      <br/>
-      <sub><b>Stacking</b> — notifications slide in with a small delay, then drain</sub>
+      <video src="https://github.com/user-attachments/assets/35c34736-37f6-478c-911f-7d94a9234b13" width="300" muted controls></video><br/>
+      <sub><b>Stacking</b> — staggered in and out</sub>
     </td>
     <td width="50%" align="center">
-    
-
-https://github.com/user-attachments/assets/3af9f57d-c4e9-4e44-9113-74d56a5e7e14
-
-
-      <br/>
-      <sub><b>Animated SF Symbols</b> — e.g. variable-color Wi-Fi</sub>
+      <video src="https://github.com/user-attachments/assets/3af9f57d-c4e9-4e44-9113-74d56a5e7e14" width="300" muted controls></video><br/>
+      <sub><b>Animated icons</b> — SF Symbol effects</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      
-
-https://github.com/user-attachments/assets/4929a654-f2e2-437a-aa40-95209c7d7344
-
-
-      <br/>
+      <video src="https://github.com/user-attachments/assets/4929a654-f2e2-437a-aa40-95209c7d7344" width="300" muted controls></video><br/>
       <sub><b>Progress</b> — determinate upload</sub>
     </td>
     <td width="50%" align="center">
-    
-
-https://github.com/user-attachments/assets/fad24d65-6794-4289-a440-60576e57d40d
-
-
-      <br/>
+      <video src="https://github.com/user-attachments/assets/fad24d65-6794-4289-a440-60576e57d40d" width="300" muted controls></video><br/>
       <sub><b>Action button</b> — inline Undo</sub>
     </td>
   </tr>
 </table>
-
-> Recorded on the iOS 26 simulator. If a clip doesn't play inline, click it to
-> open the file.
 
 ## Highlights
 

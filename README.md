@@ -1,11 +1,13 @@
 # liquid_toasts
 
-Premium, **SwiftUI-native** toasts for Flutter — rendered above your app with
-adaptive **Liquid Glass**, a springy slide-in entrance, per-position vertical
-stacking, and async **loading** toasts. No `BuildContext` required.
+Premium toasts for Flutter — rendered above your app with a springy slide-in
+entrance, per-position vertical stacking, and async **loading** toasts. No
+`BuildContext` required.
 
-> iOS is supported today. Android is on the roadmap; the Dart API and wire
-> protocol are platform-neutral so the same surface will light up on Android.
+**iOS** renders natively in SwiftUI with adaptive **Liquid Glass**. **Android and
+desktop** (macOS/Windows/Linux) share a Flutter-rendered overlay with a real
+backdrop **blur** — same API, same behavior, same events. (Web uses the same
+overlay and ships in a later release.)
 
 ## Showcase
 
@@ -34,11 +36,11 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 
 ## Highlights
 
-- **Native rendering** — toasts are drawn in SwiftUI on an overlay above your
-  Flutter UI, so they float over everything and need no `BuildContext`.
-- **Adaptive Liquid Glass** — real `glassEffect` on iOS 26+, a frosted
-  `.ultraThinMaterial` fallback on iOS 17–25, and an opaque surface under
-  *Reduce Transparency*.
+- **Overlay rendering** — toasts float on an overlay above your UI and need no
+  `BuildContext`. Drawn in SwiftUI on iOS; in a Flutter `Overlay` everywhere else.
+- **Adaptive glass / blur** — real `glassEffect` on iOS 26+, a frosted
+  `.ultraThinMaterial` on iOS 17–25, and an opaque surface under *Reduce
+  Transparency*. On Android/desktop, a `BackdropFilter` blur of the live app.
 - **Springy entrance** — toasts slide in from the nearest edge (down from the
   top, up from the bottom) with a fade + scale, and fade + blur away in place.
 - **Loading lifecycle** — wrap a `Future`; show a spinner, then morph to
@@ -48,7 +50,9 @@ stacking, and async **loading** toasts. No `BuildContext` required.
   newest pushes the rest along, and overflow scales + fades + blurs away in
   place.
 - **Semantic styles** — `success` / `error` / `warning` / `info`, each
-  overridable. SF Symbols by name, with customizable (adaptive) icon colors.
+  overridable, with customizable (adaptive) icon colors. Icons are SF Symbols by
+  name on iOS; on other platforms they map to Material icons (semantic toasts map
+  cleanly).
 - **Animated icons** — opt into an SF Symbol effect (`bounce`, `pulse`,
   `wiggle`, `rotate`, `breathe`, `variableColor`, or iOS-26 `drawOn`) per toast.
 - **One action button** — fully rounded, color derived from a semantic role.
@@ -58,8 +62,22 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 
 ## Requirements
 
-- iOS **17.0+** (Liquid Glass auto-activates on iOS 26+; frosted fallback below).
+- **iOS 17.0+** for native rendering (Liquid Glass auto-activates on iOS 26+;
+  frosted fallback below).
+- **Android and desktop** — no minimum beyond Flutter; rendered with a Flutter
+  overlay, no native plugin code.
 - Flutter **3.27+**.
+
+### Platform rendering
+
+| Platform | Renderer | Background |
+|---|---|---|
+| iOS | Native SwiftUI overlay | Adaptive Liquid Glass / frosted |
+| Android · macOS · Windows · Linux | Flutter `Overlay` (`OverlayLiquidToasts`) | `BackdropFilter` blur of the live app |
+
+Non-iOS rendering differs by design: a simple blur instead of Liquid Glass,
+Material icons instead of SF Symbols, and coarser haptics. Animations, stacking,
+gestures, the loading morph, and every lifecycle event match iOS.
 
 ## Install
 

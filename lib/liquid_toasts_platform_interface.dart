@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'liquid_toasts_method_channel.dart';
+import 'src/overlay/overlay_liquid_toasts.dart';
 import 'src/liquid_toasts_config.dart';
 import 'src/toast.dart';
 import 'src/toast_event.dart';
@@ -14,7 +17,19 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static LiquidToastsPlatform _instance = MethodChannelLiquidToasts();
+  static LiquidToastsPlatform _instance = _createDefault();
+
+  /// iOS uses the native method-channel implementation; every other platform
+  /// (Android, web, desktop) renders with the Flutter [OverlayLiquidToasts]. On
+  /// non-iOS the Dart plugin registrant also calls
+  /// [OverlayLiquidToasts.registerWith]; this default keeps selection correct
+  /// even where that registrant doesn't run (e.g. `flutter test`).
+  static LiquidToastsPlatform _createDefault() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      return MethodChannelLiquidToasts();
+    }
+    return OverlayLiquidToasts();
+  }
 
   /// The default instance of [LiquidToastsPlatform] to use.
   static LiquidToastsPlatform get instance => _instance;

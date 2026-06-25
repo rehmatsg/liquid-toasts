@@ -1,3 +1,21 @@
+## 0.1.0
+
+Cross-platform rendering: **Android, macOS, Windows, and Linux** now show toasts
+via a Flutter-rendered overlay (no native platform code) — the same API,
+animations, stacking, gestures, loading morph, and lifecycle events as iOS.
+
+* New `OverlayLiquidToasts` platform implementation renders the toast UI in the
+  app's root `Overlay`, discovered context-free (still no `BuildContext`).
+* The background is a real `BackdropFilter` blur of the live app content — the
+  cross-platform stand-in for Liquid Glass.
+* Behavior parity: spring entrance, scale + fade + blur exit, swipe-to-dismiss,
+  wall-clock auto-dismiss surviving backgrounding, replace-by-`groupKey`, and
+  per-position `maxVisible`.
+* Fidelity deltas by design: a simple blur (not Liquid Glass), Material icons
+  instead of SF Symbols, and coarser haptics.
+* iOS is unchanged (native SwiftUI Liquid Glass). The Android native
+  method-channel stub was removed; Android is now a Dart-only platform.
+
 ## 0.0.1
 
 Initial release — iOS support.

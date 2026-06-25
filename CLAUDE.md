@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`liquid_toasts` is a Flutter **plugin** that renders premium, SwiftUI-native
-toasts on an overlay above the Flutter app — adaptive Liquid Glass, springy
-entrance, per-position vertical stacking, async loading toasts — with **no
-`BuildContext` required** (the whole Dart API is static). iOS is implemented
-today; Android is stubbed (`LiquidToastsPlugin.kt` is a method-channel skeleton)
-but the Dart API and wire protocol are platform-neutral.
+`liquid_toasts` is a Flutter **plugin** that renders premium toasts on an overlay
+above the Flutter app — springy entrance, per-position vertical stacking, async
+loading toasts — with **no `BuildContext` required** (the whole Dart API is
+static). **iOS renders natively** in SwiftUI (adaptive Liquid Glass). **Every
+other platform** (Android, macOS, Windows, Linux) shares a **Flutter-rendered
+overlay** (`OverlayLiquidToasts`) with a real `BackdropFilter` blur. The Dart API
+and wire protocol are platform-neutral, and the facade is identical everywhere.
 
 ## Commands
 
@@ -21,7 +22,7 @@ flutter test                            # all Dart unit tests
 flutter test test/liquid_toasts_test.dart                    # one file
 flutter test --plain-name 'show serializes the toast'        # one test by name
 
-cd example && flutter run               # run the demo app (needs an iOS device/sim)
+cd example && flutter run               # demo app (iOS sim/device, Android emulator, or desktop)
 cd example && flutter run -t lib/showcase.dart   # run the README recording harness
 ```
 
@@ -41,9 +42,12 @@ pub.dev are unaffected. CocoaPods is also supported (`ios/liquid_toasts.podspec`
 ## Architecture
 
 The plugin is a **two-layer bridge**: a context-free Dart facade that owns
-caller-facing state, and a SwiftUI overlay on iOS that owns all rendering and
-the actual toast stack. They communicate over a method channel (Dart→native
-commands) and an event channel (native→Dart lifecycle events).
+caller-facing state, behind a `LiquidToastsPlatform` interface with two
+implementations. On **iOS** it's a SwiftUI overlay reached over a method/event
+channel (`MethodChannelLiquidToasts`). On **every other platform** it's a
+Flutter-rendered overlay in pure Dart (`OverlayLiquidToasts`). Both speak the
+same `ToastEvent` contract, so the facade — registry, callbacks, completers —
+is identical regardless of platform.
 
 ### Dart side (`lib/`)
 
@@ -56,6 +60,9 @@ commands) and an event channel (native→Dart lifecycle events).
   dropped by comparing `activeActionId`.
 - `LiquidToastsPlatform` (`lib/liquid_toasts_platform_interface.dart`) — the
   `PlatformInterface` the facade talks to; swap `.instance` with a fake in tests.
+  Its default picks `MethodChannelLiquidToasts` on iOS and `OverlayLiquidToasts`
+  everywhere else (and the non-iOS Dart plugin registrant also calls
+  `OverlayLiquidToasts.registerWith` via the pubspec `dartPluginClass`).
 - `MethodChannelLiquidToasts` (`lib/liquid_toasts_method_channel.dart`) — the iOS
   impl. Every command is wrapped in an `_envelope` carrying `protocolVersion`
   (currently `1`); bump it on incompatible wire changes.
@@ -87,6 +94,40 @@ commands) and an event channel (native→Dart lifecycle events).
 - `Models.swift` — `ToastModel` and friends; mirrors the Dart wire format.
 - `DynamicIslandGeometry.swift` — device geometry snapshot for `queryGeometry`.
 - `Haptics.swift` — maps the toast's haptic enum to `UINotificationFeedbackGenerator`.
+
+### Cross-platform side (`lib/src/overlay/`)
+
+Used on Android, macOS, Windows, and Linux. Renders the same toast UI with
+Flutter widgets in the app's root `Overlay`; no native code. Mirrors the iOS
+split — a headless state machine + a render tree.
+
+- `OverlayLiquidToasts` (`overlay_liquid_toasts.dart`) — the non-iOS
+  `LiquidToastsPlatform`. Implements the 8 members + the `events` stream + the
+  `dartPluginClass` `registerWith`. Receives the typed `Toast` directly (no map
+  parsing) but still routes action/tap through `ToastEvent`s so the facade's
+  stale-action-id guard holds.
+- `ToastOverlayController` (`toast_overlay_controller.dart`) — the headless,
+  unit-testable port of `ToastManager.swift`: queue, replace-by-`groupKey`,
+  per-position `maxVisible` + `dropPolicy`, **wall-clock** auto-dismiss surviving
+  backgrounding (it's a `WidgetsBindingObserver`), exactly-once teardown, and
+  event emission. Cards are keyed by the `LiveToast` instance so a `groupKey`
+  morph keeps state (no re-entrance).
+- `ToastOverlayHost` (`toast_overlay_host.dart`) — discovers the app's root
+  `OverlayState` by walking `WidgetsBinding.rootElement` (context-free; works for
+  any `MaterialApp`/`CupertinoApp`) and inserts one passthrough `OverlayEntry`.
+- `widgets/` — the render tree (≈ the SwiftUI views): `toast_layer.dart`
+  (7-position stacking), `toast_card.dart` (entrance spring, exit scale+fade+blur,
+  swipe-to-dismiss), `toast_glass.dart` (`BackdropFilter` frosted background — the
+  simple-blur stand-in for Liquid Glass; blurs the live app content),
+  `toast_icon.dart`, `toast_action_button.dart`.
+- `toast_springs.dart` — SwiftUI→Flutter spring conversions
+  (`stiffness = (2π/response)²`). `sf_symbol_icons.dart` — SF Symbol → Material
+  icon map + semantic defaults.
+
+**Fidelity deltas vs iOS** (by design): a simple blur instead of Liquid Glass,
+Material icons instead of SF Symbols (semantic toasts map cleanly; arbitrary SF
+Symbol names fall back), and coarser `HapticFeedback`. Animations, stacking,
+gestures, loading morph, and every lifecycle event match iOS.
 
 ### Wire protocol invariants
 
@@ -120,6 +161,11 @@ caller always owns the outcome. Don't change this to swallow results.
 - `LiquidToasts.debugReset()` resets all static state between tests;
   `LiquidToasts.debugEmit(event)` injects a native event into the router. Both are
   `@visibleForTesting` — use them rather than reaching into private state.
+- `test/toast_overlay_controller_test.dart` drives the overlay state machine
+  headlessly; `test/overlay_liquid_toasts_test.dart` pumps a `MaterialApp` and
+  asserts the rendered cards, gestures, and lifecycle events end-to-end. Tests
+  that leave an armed auto-dismiss `Timer` must cancel it (e.g. `dismissAll`)
+  before the body ends, or the test binding flags a pending timer.
 
 ## Showcase clips
 

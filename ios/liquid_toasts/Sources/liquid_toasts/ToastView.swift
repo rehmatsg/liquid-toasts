@@ -55,12 +55,11 @@ struct ToastView: View {
   }
 
   private var shape: AnyShape {
-    // One shape for both layouts. A `RoundedRectangle` clamps its radius to half
-    // the smaller side, so on a short single-line toast (radius 22) it renders
-    // as a capsule, while a tall multiline toast keeps the 22pt corner. Using a
-    // single shape type (rather than swapping Capsule <-> RoundedRectangle) lets
-    // a toast animate its frame across the multiline boundary without snapping.
-    let radius = toast.style?.cornerRadius ?? 22
+    // One shape type for every state (so the frame can animate across the
+    // multiline boundary without the shape snapping). The radius keys off width:
+    // at the full multiline width use 22; narrower (a hugging single-line toast)
+    // use a large radius that `RoundedRectangle` clamps to a capsule.
+    let radius = toast.style?.cornerRadius ?? (isMultiline ? 22 : 99)
     return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 
@@ -178,7 +177,16 @@ struct ToastView: View {
           .onEnded { _ in if isPressed { isPressed = false; onPressEnd() } }
       )
       .onPreferenceChange(ActionWidthKey.self) { actionWidth = $0 }
-      .onPreferenceChange(NaturalWidthKey.self) { naturalWidth = $0 }
+      .onPreferenceChange(NaturalWidthKey.self) { w in
+        // Animate single-line width changes too, so a capsule -> capsule morph
+        // (e.g. "Downloading season 2" -> "Download complete") grows/shrinks
+        // smoothly. First measurement applies instantly.
+        if naturalWidth == 0 {
+          naturalWidth = w
+        } else if w != naturalWidth {
+          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { naturalWidth = w }
+        }
+      }
       .accessibilityElement(children: .combine)
       .accessibilityLabel(toast.accessibilityText)
       .accessibilityAddTraits(.isStaticText)

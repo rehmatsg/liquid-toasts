@@ -19,17 +19,25 @@ struct ToastView: View {
   /// rounded rectangle.
   @State private var isMultiline = false
 
-  /// Width of a multiline toast: 4/5 of the device width.
-  private var multilineWidth: CGFloat { deviceWidth * 0.8 }
+  /// Width of a multiline toast: the full device width minus a comfortable
+  /// horizontal margin on each side, so it reads clearly inset (like an iOS
+  /// notification) rather than edge-to-edge. Capped at `multilineMaxWidth` so it
+  /// never stretches unwieldily wide on large screens (iPad / landscape) — and
+  /// is never the full device width.
+  private var multilineSideMargin: CGFloat { 20 }
+  private var multilineMaxWidth: CGFloat { 440 }
+  private var multilineWidth: CGFloat {
+    min(multilineMaxWidth, deviceWidth - multilineSideMargin * 2)
+  }
 
   private var shape: AnyShape {
     // An explicit cornerRadius always wins. Otherwise multiline toasts use a
-    // rounded rectangle (~16) and single-line toasts stay a capsule.
+    // rounded rectangle (22) and single-line toasts stay a capsule.
     if let radius = toast.style?.cornerRadius {
       return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
     if isMultiline {
-      return AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+      return AnyShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
     return AnyShape(Capsule(style: .continuous))
   }
@@ -104,7 +112,7 @@ struct ToastView: View {
 
   var body: some View {
     content
-      // Multiline pins to 4/5 of the device width; single-line hugs content.
+      // Multiline pins to the (capped) near-full width; single-line hugs content.
       .modifier(ToastWidthModifier(width: isMultiline ? multilineWidth : nil))
       .background { GlassBackground(shape: shape) }
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))

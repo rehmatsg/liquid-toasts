@@ -10,10 +10,18 @@ struct ToastView: View {
   let onTapBody: () -> Void
   let onAction: () -> Void
   let onSwipe: () -> Void
+  /// Touch-down / touch-up — used to pause & resume the auto-dismiss timer while
+  /// the user is interacting with (reading / holding / dragging) the toast.
+  let onPressStart: () -> Void
+  let onPressEnd: () -> Void
 
   @Environment(\.colorScheme) private var scheme
   @State private var dragOffset: CGFloat = 0
   @State private var isDragging = false
+  @State private var isPressed = false
+  /// Measured width of the action button, fed back into the multiline probe so
+  /// the wrap decision accounts for the space the button takes.
+  @State private var actionWidth: CGFloat = 0
   /// True once the message wraps onto more than one line — measured off-screen.
   /// Multiline toasts trade the hugging capsule for a wider, left-aligned
   /// rounded rectangle.
@@ -67,11 +75,29 @@ struct ToastView: View {
     toast.state == .loading || toast.resolvedSymbol != nil
   }
 
+  /// A determinate circular progress ring renders in place of the leading icon.
+  private var showsCircularProgress: Bool {
+    toast.progress != nil && toast.progressStyle == .circular
+  }
+
+  /// Whether anything occupies the leading slot (icon / spinner / progress ring).
+  private var showsLeading: Bool { showsCircularProgress || showsIcon }
+
+  /// Accent for the progress ring / bar: the icon-color override, then the tint,
+  /// then the semantic color (falling back to the accent for `.none`).
+  private var accentTint: Color {
+    if let c = toast.style?.iconColor?.resolved(scheme) { return c }
+    if let c = toast.style?.tint?.resolved(scheme) { return c }
+    return toast.semantic == .none ? .accentColor : toast.semantic.tint
+  }
+
   private var content: some View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
     HStack(alignment: .center, spacing: rowSpacing) {
-      if showsIcon {
+      if showsCircularProgress {
+        CircularProgressView(value: toast.progress ?? 0, tint: accentTint)
+      } else if showsIcon {
         IconView(toast: toast)
       }
 
@@ -89,11 +115,12 @@ struct ToastView: View {
           .lineLimit(toast.maxLines)
           .fixedSize(horizontal: false, vertical: true)
 
-        if let progress = toast.progress {
+        if let progress = toast.progress, toast.progressStyle == .linear {
           ProgressView(value: max(0, min(1, progress)))
             .progressViewStyle(.linear)
-            .tint(toast.semantic.tint)
-            .frame(width: 160)
+            .tint(accentTint)
+            // Fills the text column when multiline; fixed on a hugging capsule.
+            .frame(maxWidth: isMultiline ? .infinity : 160)
             .padding(.top, 4)
         }
       }
@@ -103,6 +130,9 @@ struct ToastView: View {
 
       if let action = toast.action {
         ActionButton(action: action, onTap: onAction)
+          .background(GeometryReader { g in
+            Color.clear.preference(key: ActionWidthKey.self, value: g.size.width)
+          })
       }
     }
     .padding(.leading, leadingPadding)
@@ -124,6 +154,14 @@ struct ToastView: View {
         Haptics.impact(.light)
         onTapBody()
       }
+      .simultaneousGesture(
+        // Touch-down pauses auto-dismiss, lift resumes it. Runs alongside the
+        // swipe (highPriority) and tap gestures without consuming them.
+        DragGesture(minimumDistance: 0)
+          .onChanged { _ in if !isPressed { isPressed = true; onPressStart() } }
+          .onEnded { _ in if isPressed { isPressed = false; onPressEnd() } }
+      )
+      .onPreferenceChange(ActionWidthKey.self) { actionWidth = $0 }
       .accessibilityElement(children: .combine)
       .accessibilityLabel(toast.accessibilityText)
       .accessibilityAddTraits(.isStaticText)
@@ -138,7 +176,12 @@ struct ToastView: View {
     // Reference width = the text column in the *multiline* layout (fixed insets,
     // independent of `isMultiline`) so the measurement can't feed back into
     // itself and oscillate.
-    let reference = max(160, multilineWidth - 18 - 18 - (showsIcon ? 22 + 14 : 0))
+    let leading: CGFloat = 18
+    let trailing: CGFloat = toast.action == nil ? 18 : 11
+    let glyph: CGFloat = showsLeading ? 22 + 14 : 0 // leading slot + row spacing
+    // Subtract the action button (measured; estimate until first layout) + spacing.
+    let act: CGFloat = toast.action != nil ? (actionWidth > 0 ? actionWidth : 72) + 14 : 0
+    let reference = max(120, multilineWidth - leading - trailing - glyph - act)
     return Text(toast.message)
       .font(.system(.subheadline, design: .rounded))
       .lineLimit(toast.maxLines)
@@ -213,5 +256,38 @@ private struct MessageHeightKey: PreferenceKey {
   static var defaultValue: CGFloat = 0
   static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
     value = max(value, nextValue())
+  }
+}
+
+/// Carries the action button's rendered width up to `ToastView` so the multiline
+/// probe can subtract the horizontal space the button occupies.
+private struct ActionWidthKey: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+// MARK: - Circular progress
+
+/// A determinate circular progress ring sized to the leading icon slot — an
+/// upload/download-style indicator. (SwiftUI's `.circular` progress style is
+/// indeterminate on iOS, so the arc is drawn directly.)
+struct CircularProgressView: View {
+  let value: Double
+  let tint: Color
+
+  var body: some View {
+    let clamped = max(0, min(1, value))
+    ZStack {
+      Circle()
+        .stroke(tint.opacity(0.22), lineWidth: 2.6)
+      Circle()
+        .trim(from: 0, to: clamped)
+        .stroke(tint, style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+        .rotationEffect(.degrees(-90))
+        .animation(.easeInOut(duration: 0.25), value: clamped)
+    }
+    .frame(width: 20, height: 20)
   }
 }

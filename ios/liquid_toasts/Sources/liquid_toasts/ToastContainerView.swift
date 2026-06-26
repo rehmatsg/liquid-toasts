@@ -72,7 +72,9 @@ struct ToastContainerView: View {
             deviceWidth: hostWidth,
             onTapBody: { manager.handleBodyTap(id: toast.id) },
             onAction: { manager.handleAction(id: toast.id) },
-            onSwipe: { manager.handleSwipe(id: toast.id) }
+            onSwipe: { manager.handleSwipe(id: toast.id) },
+            onPressStart: { manager.pauseAutoDismiss(id: toast.id) },
+            onPressEnd: { manager.resumeAutoDismiss(id: toast.id) }
           )
           .background(
             GeometryReader { geo in

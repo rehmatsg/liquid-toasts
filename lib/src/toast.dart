@@ -28,6 +28,7 @@ class Toast {
     this.tapToDismiss = true,
     this.groupKey,
     this.progress,
+    this.progressStyle = ToastProgressStyle.linear,
     this.haptic,
     this.semanticsLabel,
     this.maxLines = 1,
@@ -42,6 +43,7 @@ class Toast {
     this.useDynamicIslandOrigin = true,
     this.groupKey,
     this.progress,
+    this.progressStyle = ToastProgressStyle.linear,
     this.semanticsLabel,
     this.maxLines = 1,
   })  : semantic = ToastSemantic.none,
@@ -64,6 +66,7 @@ class Toast {
     bool useDynamicIslandOrigin = true,
     String? groupKey,
     double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     String? semanticsLabel,
     int maxLines = 1,
   }) =>
@@ -76,6 +79,7 @@ class Toast {
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
         progress: progress,
+        progressStyle: progressStyle,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
       );
@@ -253,6 +257,10 @@ class Toast {
   /// Determinate progress 0.0–1.0 for upload-style toasts. Null ⇒ no bar.
   final double? progress;
 
+  /// How [progress] renders — a linear bar under the text or a circular ring in
+  /// the leading slot. Ignored when [progress] is null.
+  final ToastProgressStyle progressStyle;
+
   /// Haptic fired on appear. Null ⇒ derived from [semantic].
   final ToastHaptic? haptic;
 
@@ -298,6 +306,7 @@ class Toast {
         if (!isPersistent) 'durationMs': duration!.inMilliseconds,
         'useDynamicIslandOrigin': useDynamicIslandOrigin,
         if (progress != null) 'progress': progress,
+        if (progress != null) 'progressStyle': progressStyle.name,
         if (groupKey != null) 'groupKey': groupKey,
         'haptic': _effectiveHaptic.name,
         if (semanticsLabel != null) 'semanticsLabel': semanticsLabel,

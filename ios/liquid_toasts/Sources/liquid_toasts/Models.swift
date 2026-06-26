@@ -56,6 +56,8 @@ enum ToastSymbolEffect: String {
   case none, bounce, pulse, wiggle, rotate, breathe, variableColor, drawOn
 }
 
+enum ToastProgressStyle: String { case linear, circular }
+
 enum ToastPositionModel: String {
   case topCenter, topLeading, topTrailing
   case center
@@ -187,6 +189,7 @@ struct ToastModel: Identifiable {
   var durationMs: Int?
   var useDynamicIslandOrigin: Bool
   var progress: Double?
+  var progressStyle: ToastProgressStyle
   var groupKey: String?
   var haptic: ToastHapticKind
   var semanticsLabel: String?
@@ -214,6 +217,8 @@ struct ToastModel: Identifiable {
     self.durationMs = ltInt(map["durationMs"])
     self.useDynamicIslandOrigin = ltBool(map["useDynamicIslandOrigin"]) ?? true
     self.progress = ltDouble(map["progress"])
+    self.progressStyle = (map["progressStyle"] as? String)
+      .flatMap(ToastProgressStyle.init(rawValue:)) ?? .linear
     self.groupKey = map["groupKey"] as? String
     self.haptic = (map["haptic"] as? String).flatMap(ToastHapticKind.init(rawValue:)) ?? .none
     self.semanticsLabel = map["semanticsLabel"] as? String
@@ -236,6 +241,7 @@ struct ToastModel: Identifiable {
     persistent = other.persistent
     durationMs = other.durationMs
     progress = other.progress
+    progressStyle = other.progressStyle
     haptic = other.haptic
     semanticsLabel = other.semanticsLabel
     maxLines = other.maxLines

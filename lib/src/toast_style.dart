@@ -15,6 +15,13 @@ enum ToastGlass { adaptive, liquid, frosted, solid, none }
 /// toast's [ToastSemantic] when left unset.
 enum ToastHaptic { none, success, warning, error, selection }
 
+/// How a determinate progress value renders.
+///
+/// - [linear] — a horizontal bar under the text (fills the toast width).
+/// - [circular] — a compact determinate ring in the leading slot, in place of
+///   the icon (an upload/download-style indicator).
+enum ToastProgressStyle { linear, circular }
+
 /// An animated SF Symbol effect applied to the toast's icon.
 ///
 /// - [bounce] fires once when the icon appears.

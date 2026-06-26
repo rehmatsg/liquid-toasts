@@ -29,6 +29,8 @@ final class ToastManager: ObservableObject {
   var onEmptyChanged: ((Bool) -> Void)?
 
   private var deadlineTasks: [String: Task<Void, Never>] = [:]
+  /// Banked remaining auto-dismiss time for toasts paused mid-interaction.
+  private var pausedRemaining: [String: TimeInterval] = [:]
   private var backgrounded = false
   private var wasEmpty = true
 
@@ -96,6 +98,7 @@ final class ToastManager: ObservableObject {
   func flushAll() {
     for task in deadlineTasks.values { task.cancel() }
     deadlineTasks.removeAll()
+    pausedRemaining.removeAll()
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
     notifyEmpty()
@@ -117,6 +120,30 @@ final class ToastManager: ObservableObject {
 
   func handleSwipe(id: String) {
     teardown(id: id, reason: "swipe")
+  }
+
+  /// Pauses a toast's auto-dismiss while the user is touching it. The remaining
+  /// time is banked and the wall-clock deadline cleared so neither the timer nor
+  /// a background/foreground cycle can fire it mid-interaction. No-op for
+  /// persistent / loading toasts (they have no deadline).
+  func pauseAutoDismiss(id: String) {
+    guard let index = toasts.firstIndex(where: { $0.id == id }),
+          let deadline = toasts[index].deadline else { return }
+    let remaining = deadline.timeIntervalSinceNow
+    guard remaining > 0 else { return }
+    pausedRemaining[id] = remaining
+    cancelDeadline(id)
+    toasts[index].deadline = nil
+  }
+
+  /// Resumes a paused toast's auto-dismiss with its banked remaining time.
+  /// No-op if the toast was never paused or has since gone away.
+  func resumeAutoDismiss(id: String) {
+    guard let remaining = pausedRemaining.removeValue(forKey: id),
+          toasts.contains(where: { $0.id == id }) else { return }
+    let deadline = Date().addingTimeInterval(remaining)
+    setDeadline(id, deadline)
+    if !backgrounded { scheduleTask(for: id, fireAt: deadline) }
   }
 
   // MARK: - App lifecycle
@@ -146,6 +173,7 @@ final class ToastManager: ObservableObject {
   private func teardown(id: String, reason: String) {
     guard toasts.contains(where: { $0.id == id }) else { return }
     cancelDeadline(id)
+    pausedRemaining[id] = nil
     withAnimation(stackSpring) { toasts.removeAll { $0.id == id } }
     frames[id] = nil
     emitDismissed(id, reason: reason)
@@ -170,6 +198,7 @@ final class ToastManager: ObservableObject {
 
   private func arm(_ model: ToastModel) {
     cancelDeadline(model.id)
+    pausedRemaining[model.id] = nil // a fresh arm supersedes any banked pause
     guard let duration = model.autoDuration else {
       setDeadline(model.id, nil)
       return

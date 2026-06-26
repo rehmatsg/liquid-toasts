@@ -18,6 +18,10 @@ struct ToastContainerView: View {
   @ObservedObject var manager: ToastManager
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+  /// Live width of the overlay host (== device width, the host is full-screen).
+  /// Multiline toasts size themselves to a fraction of this.
+  @State private var hostWidth: CGFloat = 0
+
   /// Toasts grouped by position, preserving insertion order — each position is
   /// its own independent list so a bottom toast never disturbs the top list.
   private var groups: [(position: ToastPositionModel, toasts: [ToastModel])] {
@@ -36,6 +40,13 @@ struct ToastContainerView: View {
     // toasts above the home indicator automatically.
     ZStack {
       Color.clear
+        .background(
+          GeometryReader { geo in
+            Color.clear
+              .onAppear { hostWidth = geo.size.width }
+              .onChange(of: geo.size.width) { _, w in hostWidth = w }
+          }
+        )
       ForEach(groups, id: \.position) { group in
         positionedList(position: group.position, toasts: group.toasts)
       }
@@ -58,9 +69,12 @@ struct ToastContainerView: View {
         ) {
           ToastView(
             toast: toast,
+            deviceWidth: hostWidth,
             onTapBody: { manager.handleBodyTap(id: toast.id) },
             onAction: { manager.handleAction(id: toast.id) },
-            onSwipe: { manager.handleSwipe(id: toast.id) }
+            onSwipe: { manager.handleSwipe(id: toast.id) },
+            onPressStart: { manager.pauseAutoDismiss(id: toast.id) },
+            onPressEnd: { manager.resumeAutoDismiss(id: toast.id) }
           )
           .background(
             GeometryReader { geo in

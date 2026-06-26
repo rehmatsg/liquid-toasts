@@ -1,6 +1,6 @@
 name: liquid_toasts
 description: "Native iOS toasts for Flutter with adaptive Liquid Glass, a Dynamic Island origin, depth stacking, and async loading toasts — no BuildContext required."
-version: 0.0.1
+version: 0.1.0
 homepage: https://github.com/rehmatsg/liquid-toasts
 repository: https://github.com/rehmatsg/liquid-toasts
 

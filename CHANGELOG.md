@@ -1,3 +1,25 @@
+## 0.1.0
+
+iOS multiline layout, progress styles, and interaction polish. No breaking
+changes — everything below is additive (`progressStyle` defaults to `.linear`,
+which reproduces the previous rendering).
+
+* **Multiline toasts** — a message that wraps past one line (set `maxLines >= 2`)
+  now renders as a wider, left-aligned rounded rectangle (≈4/5 width, inset like
+  an iOS notification, capped on large screens) instead of a tall centered
+  capsule. Single-line toasts keep the hugging capsule. Note `Toast.error` /
+  `Toast.warning` default to `maxLines: 2`, so their long messages adopt this.
+* **Progress styles** — new `ToastProgressStyle { linear, circular }` on
+  `Toast.progressStyle`. `linear` is the bar under the text (now fills the width
+  on multiline toasts); `circular` shows a determinate ring in the leading slot.
+* **Pause on interaction** — a toast's auto-dismiss countdown now pauses while
+  you touch / hold / drag it, and resumes on release.
+* **Animated morphs** — updating a toast across the single-line ↔ multiline
+  boundary (e.g. an upload's progress → "done") animates its width and corners
+  in place instead of snapping.
+* Tooling: `tool/record_demo.sh` + `example/lib/demo_harness.dart` for recording
+  high-quality 60fps demo clips on the iOS simulator.
+
 ## 0.0.1
 
 Initial release — iOS support.

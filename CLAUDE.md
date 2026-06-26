@@ -121,9 +121,26 @@ caller always owns the outcome. Don't change this to swallow results.
   `LiquidToasts.debugEmit(event)` injects a native event into the router. Both are
   `@visibleForTesting` — use them rather than reaching into private state.
 
-## Showcase clips
+## Demo / showcase videos
 
-`example/lib/showcase.dart` is a recording harness for the README's
+`example/lib/showcase.dart` is the recording harness for the README's
 `assets/showcase/*.mp4` clips (full-bleed wallpaper so glass has something to
 refract, clean gaps between previews). The exact ffmpeg/simctl regeneration
 recipe is documented in that file's header comment.
+
+For ad-hoc demo videos (e.g. showing off a styling change), use the automated
+recorder instead of doing it by hand:
+
+```bash
+tool/record_demo.sh --target lib/multiline_demo.dart --prefix MULTILINE --contact
+```
+
+It launches the example on a booted iOS sim, records a clean hot-restart replay,
+and encodes a high-quality **60 fps** mp4 cropped to the toast zone (lead-in
+auto-trimmed; `--contact` writes a verification grid). Write new reels with
+`runDemoReel()` in `example/lib/demo_harness.dart` — a `name → preview` map that
+emits the `<prefix>:…:START/END` + `<prefix>:DONE` markers the recorder keys off
+(`example/lib/multiline_demo.dart` is the worked example). The `record-demo`
+skill documents the full workflow. Note: the sim's display link caps capture at
+60 fps; true 120 fps needs a physical ProMotion device. Toasts animate natively
+in SwiftUI, so capture smoothness is independent of Flutter debug/profile mode.

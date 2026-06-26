@@ -48,13 +48,12 @@ Future<void> _progressLinear() async {
       progress: p / 10,
     ));
   }
+  // One-liner done state: morphs from the wide multiline progress toast down to
+  // a hugging single-line capsule (animated, not snapped).
   await handle.update(const Toast(
-    title: 'Backed up',
-    message: 'Your photo library is safely backed up to iCloud — you can close '
-        'the app now.',
+    message: 'Backed up to iCloud',
     icon: 'checkmark.circle.fill',
     semantic: ToastSemantic.success,
-    maxLines: 2,
     duration: Duration(seconds: 2),
   ));
   await Future<void>.delayed(const Duration(seconds: 2) + _hold);

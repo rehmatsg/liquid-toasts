@@ -22,10 +22,17 @@ struct ToastView: View {
   /// Measured width of the action button, fed back into the multiline probe so
   /// the wrap decision accounts for the space the button takes.
   @State private var actionWidth: CGFloat = 0
-  /// True once the message wraps onto more than one line — measured off-screen.
+  /// True when the message wraps onto more than one line — measured off-screen.
   /// Multiline toasts trade the hugging capsule for a wider, left-aligned
   /// rounded rectangle.
   @State private var isMultiline = false
+  /// Hugging (single-line) width, measured off-screen. Used as the concrete
+  /// frame width in single-line mode so the toast can *animate* between it and
+  /// `multilineWidth` when the message crosses the wrap boundary.
+  @State private var naturalWidth: CGFloat = 0
+  /// Whether the first off-screen measurement has landed. The initial multiline
+  /// decision is applied instantly (no entrance wobble); later changes animate.
+  @State private var didMeasure = false
 
   /// Width of a multiline toast: the full device width minus a comfortable
   /// horizontal margin on each side, so it reads clearly inset (like an iOS
@@ -38,16 +45,23 @@ struct ToastView: View {
     min(multilineMaxWidth, deviceWidth - multilineSideMargin * 2)
   }
 
+  /// Concrete frame width: the multiline width when wrapped, else the measured
+  /// hugging width. `nil` only before the first measurement, where it falls back
+  /// to hugging via `fixedSize` (the natural width ≈ this, so the hand-off when
+  /// the measurement lands is invisible).
+  private var resolvedWidth: CGFloat? {
+    if isMultiline { return multilineWidth }
+    return naturalWidth > 0 ? naturalWidth : nil
+  }
+
   private var shape: AnyShape {
-    // An explicit cornerRadius always wins. Otherwise multiline toasts use a
-    // rounded rectangle (22) and single-line toasts stay a capsule.
-    if let radius = toast.style?.cornerRadius {
-      return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-    }
-    if isMultiline {
-      return AnyShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-    return AnyShape(Capsule(style: .continuous))
+    // One shape for both layouts. A `RoundedRectangle` clamps its radius to half
+    // the smaller side, so on a short single-line toast (radius 22) it renders
+    // as a capsule, while a tall multiline toast keeps the 22pt corner. Using a
+    // single shape type (rather than swapping Capsule <-> RoundedRectangle) lets
+    // a toast animate its frame across the multiline boundary without snapping.
+    let radius = toast.style?.cornerRadius ?? 22
+    return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 
   private var foreground: Color {
@@ -142,12 +156,14 @@ struct ToastView: View {
 
   var body: some View {
     content
-      // Multiline pins to the (capped) near-full width; single-line hugs content.
-      .modifier(ToastWidthModifier(width: isMultiline ? multilineWidth : nil))
+      // Multiline pins to the (capped) near-full width; single-line hugs content
+      // — both concrete widths so a morph across the boundary animates.
+      .modifier(ToastWidthModifier(width: resolvedWidth))
       .background { GlassBackground(shape: shape) }
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
       .contentShape(shape)
       .background(multilineProbe)
+      .background(widthProbe)
       .offset(y: dragOffset)
       .highPriorityGesture(dragGesture)
       .onTapGesture {
@@ -162,6 +178,7 @@ struct ToastView: View {
           .onEnded { _ in if isPressed { isPressed = false; onPressEnd() } }
       )
       .onPreferenceChange(ActionWidthKey.self) { actionWidth = $0 }
+      .onPreferenceChange(NaturalWidthKey.self) { naturalWidth = $0 }
       .accessibilityElement(children: .combine)
       .accessibilityLabel(toast.accessibilityText)
       .accessibilityAddTraits(.isStaticText)
@@ -195,12 +212,53 @@ struct ToastView: View {
       .hidden()
       .onPreferenceChange(MessageHeightKey.self) { height in
         let lineHeight = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
-        // Latch on: once a toast wraps to multiline, keep the multiline layout
-        // for the rest of its life. A later morph to a shorter message (e.g. an
-        // upload's progress -> "done") then animates in place instead of
-        // snapping from the wide rounded rect back to a hugging capsule.
-        if deviceWidth > 0 && height > lineHeight * 1.5 { isMultiline = true }
+        let multi = deviceWidth > 0 && height > lineHeight * 1.5
+        if !didMeasure {
+          isMultiline = multi // first measurement: apply instantly (no entrance wobble)
+          didMeasure = true
+        } else if multi != isMultiline {
+          // A morph (e.g. an upload's progress -> "done") crossed the wrap
+          // boundary — animate the width + reflow instead of snapping.
+          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+            isMultiline = multi
+          }
+        }
       }
+  }
+
+  /// Off-screen measurement of the row at its single-line (hugging) width — the
+  /// concrete width single-line mode frames to, so the toast can animate between
+  /// it and `multilineWidth` rather than snapping. Mirrors the single-line
+  /// layout (16/12 insets, 260pt text cap, icon + action slots).
+  private var widthProbe: some View {
+    HStack(spacing: 12) {
+      if showsLeading {
+        Color.clear.frame(width: 22, height: 22)
+      }
+      VStack(alignment: .leading, spacing: 2) {
+        if let title = toast.title, !title.isEmpty {
+          Text(title)
+            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            .lineLimit(1)
+        }
+        Text(toast.message)
+          .font(.system(.subheadline, design: .rounded))
+          .lineLimit(1)
+      }
+      .frame(maxWidth: 260, alignment: .leading)
+      if toast.action != nil {
+        Color.clear.frame(width: max(1, actionWidth), height: 1)
+      }
+    }
+    .padding(.leading, 16)
+    .padding(.trailing, toast.action == nil ? 16 : 11)
+    .fixedSize(horizontal: true, vertical: false)
+    .background(
+      GeometryReader { geo in
+        Color.clear.preference(key: NaturalWidthKey.self, value: geo.size.width)
+      }
+    )
+    .hidden()
   }
 
   // MARK: - Drag
@@ -266,6 +324,15 @@ private struct MessageHeightKey: PreferenceKey {
 /// Carries the action button's rendered width up to `ToastView` so the multiline
 /// probe can subtract the horizontal space the button occupies.
 private struct ActionWidthKey: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+/// Carries the single-line (hugging) row width up to `ToastView` so single-line
+/// mode frames to a concrete width and can animate across the multiline boundary.
+private struct NaturalWidthKey: PreferenceKey {
   static var defaultValue: CGFloat = 0
   static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
     value = max(value, nextValue())

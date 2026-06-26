@@ -37,19 +37,19 @@ class MethodChannelLiquidToasts extends LiquidToastsPlatform {
       );
 
   @override
-  Future<bool> show(String id, Toast toast, {String? actionId}) async {
+  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     final res = await methodChannel.invokeMapMethod<String, Object?>(
       'show',
-      _envelope({'id': id, ...toast.toMap(actionId: actionId)}),
+      _envelope({'id': id, ...toast.toMap(actionId: actionId, imageBytes: imageBytes)}),
     );
     return (res?['accepted'] as bool?) ?? true;
   }
 
   @override
-  Future<bool> update(String id, Toast toast, {String? actionId}) async {
+  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     final res = await methodChannel.invokeMapMethod<String, Object?>(
       'update',
-      _envelope({'id': id, ...toast.toMap(actionId: actionId)}),
+      _envelope({'id': id, ...toast.toMap(actionId: actionId, imageBytes: imageBytes)}),
     );
     return (res?['applied'] as bool?) ?? false;
   }
@@ -72,6 +72,18 @@ class MethodChannelLiquidToasts extends LiquidToastsPlatform {
     final ids = res?['dismissedIds'] as List<Object?>?;
     return ids?.cast<String>() ?? const <String>[];
   }
+
+  @override
+  Future<void> finishAction(String id) => methodChannel.invokeMethod<void>(
+        'finishAction',
+        _envelope({'id': id}),
+      );
+
+  @override
+  Future<void> debugTriggerAction(String id) => methodChannel.invokeMethod<void>(
+        'debugTriggerAction',
+        _envelope({'id': id}),
+      );
 
   @override
   Future<Map<String, dynamic>> queryGeometry() async {

@@ -7,6 +7,8 @@ struct ToastView: View {
   let toast: ToastModel
   /// Width of the overlay host (device width); drives the multiline width.
   let deviceWidth: CGFloat
+  /// True while the action's async `onPressed` runs — the button shows a spinner.
+  let isActionLoading: Bool
   let onTapBody: () -> Void
   let onAction: () -> Void
   let onSwipe: () -> Void
@@ -93,8 +95,11 @@ struct ToastView: View {
     toast.progress != nil && toast.progressStyle == .circular
   }
 
-  /// Whether anything occupies the leading slot (icon / spinner / progress ring).
-  private var showsLeading: Bool { showsCircularProgress || showsIcon }
+  /// A leading raster image (avatar / thumbnail) takes the leading slot.
+  private var showsImage: Bool { toast.image != nil }
+
+  /// Whether anything occupies the leading slot (image / ring / spinner / icon).
+  private var showsLeading: Bool { showsImage || showsCircularProgress || showsIcon }
 
   /// Accent for the progress ring / bar: the icon-color override, then the tint,
   /// then the semantic color (falling back to the accent for `.none`).
@@ -104,29 +109,41 @@ struct ToastView: View {
     return toast.semantic == .none ? .accentColor : toast.semantic.tint
   }
 
+  /// Center the text on a compact, text-only toast: no leading glyph, no
+  /// trailing action, and not the full-width multiline layout.
+  private var centerText: Bool {
+    !showsLeading && toast.action == nil && !isMultiline
+  }
+
   private var content: some View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
     HStack(alignment: .center, spacing: rowSpacing) {
-      if showsCircularProgress {
+      if let image = toast.image {
+        AvatarView(image: image)
+      } else if showsCircularProgress {
         CircularProgressView(value: toast.progress ?? 0, tint: accentTint)
       } else if showsIcon {
         IconView(toast: toast)
       }
 
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: centerText ? .center : .leading, spacing: 2) {
         if let title = toast.title, !title.isEmpty {
           Text(title)
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .foregroundStyle(foreground)
-            .lineLimit(1)
+            .multilineTextAlignment(centerText ? .center : .leading)
+            .lineLimit(toast.titleMaxLines)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        Text(toast.message)
-          .font(.system(.subheadline, design: .rounded))
-          .foregroundStyle(toast.title == nil ? foreground : foreground.opacity(0.85))
-          .multilineTextAlignment(.leading)
-          .lineLimit(toast.maxLines)
-          .fixedSize(horizontal: false, vertical: true)
+        if !toast.message.isEmpty {
+          Text(toast.message)
+            .font(.system(.subheadline, design: .rounded))
+            .foregroundStyle(toast.title == nil ? foreground : foreground.opacity(0.85))
+            .multilineTextAlignment(centerText ? .center : .leading)
+            .lineLimit(toast.maxLines)
+            .fixedSize(horizontal: false, vertical: true)
+        }
 
         if let progress = toast.progress, toast.progressStyle == .linear {
           ProgressView(value: max(0, min(1, progress)))
@@ -139,10 +156,10 @@ struct ToastView: View {
       }
       // Single-line caps the text column so the capsule never spans the screen;
       // multiline fills the fixed-width rounded rect.
-      .frame(maxWidth: isMultiline ? .infinity : 260, alignment: .leading)
+      .frame(maxWidth: isMultiline ? .infinity : 260, alignment: centerText ? .center : .leading)
 
       if let action = toast.action {
-        ActionButton(action: action, onTap: onAction)
+        ActionButton(action: action, isLoading: isActionLoading, onTap: onAction)
           .background(GeometryReader { g in
             Color.clear.preference(key: ActionWidthKey.self, value: g.size.width)
           })
@@ -368,5 +385,22 @@ struct CircularProgressView: View {
         .animation(.easeInOut(duration: 0.25), value: clamped)
     }
     .frame(width: 20, height: 20)
+  }
+}
+
+// MARK: - Avatar
+
+/// A circular avatar / thumbnail in the leading slot — a raster image passed
+/// from Dart (any `ImageProvider`, resolved to bytes), in place of the SF Symbol.
+struct AvatarView: View {
+  let image: UIImage
+
+  var body: some View {
+    Image(uiImage: image)
+      .resizable()
+      .scaledToFill()
+      .frame(width: 26, height: 26)
+      .clipShape(Circle())
+      .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
   }
 }

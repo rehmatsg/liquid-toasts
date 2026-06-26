@@ -1,3 +1,4 @@
+import Flutter
 import SwiftUI
 import UIKit
 
@@ -161,6 +162,7 @@ struct ToastActionModel {
   let role: ActionRole
   let color: AdaptiveColor?
   let dismissOnPress: Bool
+  let loadingOnPress: Bool
 
   init?(_ value: Any?) {
     guard let map = value as? [String: Any],
@@ -171,6 +173,7 @@ struct ToastActionModel {
     self.role = (map["role"] as? String).flatMap(ActionRole.init(rawValue:)) ?? .primary
     self.color = AdaptiveColor(map["color"])
     self.dismissOnPress = ltBool(map["dismissOnPress"]) ?? true
+    self.loadingOnPress = ltBool(map["loadingOnPress"]) ?? false
   }
 }
 
@@ -181,6 +184,7 @@ struct ToastModel: Identifiable {
   var message: String
   var title: String?
   var icon: String?
+  var image: UIImage?
   var semantic: ToastSemantic
   var style: ToastStyleModel?
   var position: ToastPositionModel
@@ -194,6 +198,7 @@ struct ToastModel: Identifiable {
   var haptic: ToastHapticKind
   var semanticsLabel: String?
   var maxLines: Int
+  var titleMaxLines: Int
   var tapToDismiss: Bool
   var hasTap: Bool
   var action: ToastActionModel?
@@ -209,6 +214,9 @@ struct ToastModel: Identifiable {
     self.message = message
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String
+    if let typed = map["image"] as? FlutterStandardTypedData {
+      self.image = UIImage(data: typed.data)
+    }
     self.semantic = (map["semantic"] as? String).flatMap(ToastSemantic.init(rawValue:)) ?? .none
     self.style = ToastStyleModel(map["style"])
     self.position = (map["position"] as? String).flatMap(ToastPositionModel.init(rawValue:)) ?? .topCenter
@@ -223,6 +231,7 @@ struct ToastModel: Identifiable {
     self.haptic = (map["haptic"] as? String).flatMap(ToastHapticKind.init(rawValue:)) ?? .none
     self.semanticsLabel = map["semanticsLabel"] as? String
     self.maxLines = ltInt(map["maxLines"]) ?? 1
+    self.titleMaxLines = ltInt(map["titleMaxLines"]) ?? 1
     self.tapToDismiss = ltBool(map["tapToDismiss"]) ?? true
     self.hasTap = ltBool(map["hasTap"]) ?? false
     self.action = ToastActionModel(map["action"])
@@ -234,6 +243,7 @@ struct ToastModel: Identifiable {
     message = other.message
     title = other.title
     icon = other.icon
+    image = other.image
     semantic = other.semantic
     style = other.style
     position = other.position
@@ -245,6 +255,7 @@ struct ToastModel: Identifiable {
     haptic = other.haptic
     semanticsLabel = other.semanticsLabel
     maxLines = other.maxLines
+    titleMaxLines = other.titleMaxLines
     tapToDismiss = other.tapToDismiss
     hasTap = other.hasTap
     action = other.action

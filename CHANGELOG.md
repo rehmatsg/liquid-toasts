@@ -1,3 +1,21 @@
+## 0.2.0
+
+Richer toast content. No breaking changes — every addition is opt-in with a
+default that reproduces the previous rendering.
+
+* **Leading image / avatar** — `Toast.leadingImage` takes any Flutter
+  `ImageProvider` (`AssetImage` / `NetworkImage` / `MemoryImage` / …). It's
+  resolved to bytes off the Flutter image pipeline and rendered as a circular
+  avatar in the leading slot, in place of the SF Symbol.
+* **Title wrapping** — `Toast.titleMaxLines` (default 1) lets a long title wrap
+  instead of truncating to one line.
+* **Async action buttons** — `ToastAction.onPressed` is now
+  `FutureOr<void> Function()`, and `ToastAction.loadingOnPress` replaces the
+  button label with a spinner until the future resolves, then dismisses.
+* **Centered text** — a compact, text-only toast (no leading glyph, no trailing
+  action, not the full-width layout) now centers its text; everything else stays
+  left-aligned.
+
 ## 0.1.0
 
 iOS multiline layout, progress styles, and interaction polish. No breaking

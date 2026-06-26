@@ -1,4 +1,4 @@
-import 'dart:ui' show VoidCallback;
+import 'dart:async' show FutureOr;
 
 import 'package:meta/meta.dart';
 
@@ -25,21 +25,32 @@ class ToastAction {
     this.role = ToastActionRole.primary,
     this.color,
     this.dismissOnPress = true,
+    this.loadingOnPress = false,
   });
 
   final String label;
 
-  /// Invoked on the Dart isolate when native reports the tap. Wrapped in a
-  /// guard by the facade so a throwing callback can't poison the event stream.
-  final VoidCallback onPressed;
+  /// Invoked on the Dart isolate when native reports the tap. May be async; with
+  /// [loadingOnPress] the button shows a spinner until the returned future
+  /// completes. Wrapped in a guard by the facade so a throw can't poison the
+  /// event stream.
+  final FutureOr<void> Function() onPressed;
 
   final ToastActionRole role;
 
   /// Hard color override; bypasses [role]-to-color derivation.
   final ToastColor? color;
 
-  /// If true, the toast dismisses itself after the tap is delivered.
+  /// If true, the toast dismisses itself after the tap is delivered (for an
+  /// async [loadingOnPress] action, after [onPressed]'s future completes).
   final bool dismissOnPress;
+
+  /// When true, pressing replaces the label with a spinner and keeps the toast
+  /// up until [onPressed]'s future resolves. Then, if [dismissOnPress] is true
+  /// (the default) the toast dismisses; otherwise the spinner clears, the button
+  /// returns to its label, and auto-dismiss re-arms. Pair with an async
+  /// [onPressed].
+  final bool loadingOnPress;
 
   /// Wire format. [actionId] correlates a native `actionTapped` event back to
   /// [onPressed]; it is minted by the facade and validated to drop stale taps.
@@ -49,5 +60,6 @@ class ToastAction {
         'role': role.name,
         if (color != null) 'color': color!.toMap(),
         'dismissOnPress': dismissOnPress,
+        'loadingOnPress': loadingOnPress,
       };
 }

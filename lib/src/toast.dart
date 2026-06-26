@@ -1,5 +1,7 @@
+import 'dart:typed_data' show Uint8List;
 import 'dart:ui' show VoidCallback;
 
+import 'package:flutter/painting.dart' show ImageProvider;
 import 'package:meta/meta.dart';
 
 import 'toast_action.dart';
@@ -18,6 +20,7 @@ class Toast {
     required this.message,
     this.title,
     this.icon,
+    this.leadingImage,
     this.semantic = ToastSemantic.none,
     this.style,
     this.position = ToastPosition.topCenter,
@@ -32,6 +35,7 @@ class Toast {
     this.haptic,
     this.semanticsLabel,
     this.maxLines = 1,
+    this.titleMaxLines = 1,
   }) : loading = false;
 
   const Toast._loading({
@@ -46,7 +50,9 @@ class Toast {
     this.progressStyle = ToastProgressStyle.linear,
     this.semanticsLabel,
     this.maxLines = 1,
+    this.titleMaxLines = 1,
   })  : semantic = ToastSemantic.none,
+        leadingImage = null,
         duration = null,
         action = null,
         onTap = null,
@@ -69,6 +75,7 @@ class Toast {
     ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     String? semanticsLabel,
     int maxLines = 1,
+    int titleMaxLines = 1,
   }) =>
       Toast._loading(
         message: message,
@@ -82,6 +89,7 @@ class Toast {
         progressStyle: progressStyle,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
       );
 
   factory Toast.success({
@@ -230,6 +238,13 @@ class Toast {
   /// derived from [semantic] natively. An explicit value wins.
   final String? icon;
 
+  /// A raster image shown in the leading slot (a circular avatar / thumbnail),
+  /// in place of the SF Symbol. Any Flutter [ImageProvider] works
+  /// (`AssetImage`, `NetworkImage`, `MemoryImage`, …); it's resolved to bytes on
+  /// the Dart side and handed to the native renderer, so the usual Flutter image
+  /// pipeline (and its caching) applies. Wins over [icon] when set.
+  final ImageProvider? leadingImage;
+
   final ToastSemantic semantic;
   final ToastStyleOverride? style;
   final ToastPosition position;
@@ -267,8 +282,12 @@ class Toast {
   /// VoiceOver label. Falls back to `title` + `message` natively.
   final String? semanticsLabel;
 
-  /// Max text lines before truncation.
+  /// Max lines for [message] before truncation.
   final int maxLines;
+
+  /// Max lines the [title] wraps to before truncating (default 1). Raise to 2
+  /// to let a long title wrap instead of being cut off.
+  final int titleMaxLines;
 
   /// True for a persistent spinner toast.
   final bool loading;
@@ -294,10 +313,11 @@ class Toast {
 
   /// Wire format. [actionId] is the id minted for [action] (omit when there is
   /// no action). Colors serialize as `{light,dark}` maps; durations as ms.
-  Map<String, Object?> toMap({String? actionId}) => {
+  Map<String, Object?> toMap({String? actionId, Uint8List? imageBytes}) => {
         'message': message,
         if (title != null) 'title': title,
         if (icon != null) 'icon': icon,
+        'image': ?imageBytes,
         'semantic': semantic.name,
         if (style != null) 'style': style!.toMap(),
         'position': position.name,
@@ -311,6 +331,7 @@ class Toast {
         'haptic': _effectiveHaptic.name,
         if (semanticsLabel != null) 'semanticsLabel': semanticsLabel,
         'maxLines': maxLines,
+        'titleMaxLines': titleMaxLines,
         'tapToDismiss': tapToDismiss,
         'hasTap': onTap != null,
         if (action != null) 'action': action!.toMap(actionId ?? 'a0'),

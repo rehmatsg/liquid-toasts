@@ -1,3 +1,5 @@
+import 'dart:typed_data' show Uint8List;
+
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'liquid_toasts_method_channel.dart';
@@ -38,13 +40,13 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
   /// Shows [toast] under the Dart-minted [id]. [actionId] correlates the
   /// toast's action button to its Dart callback. Returns whether native
   /// accepted it.
-  Future<bool> show(String id, Toast toast, {String? actionId}) {
+  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) {
     throw UnimplementedError('show() has not been implemented.');
   }
 
   /// Replaces the live toast [id]'s content in place (morph). Returns whether
   /// it was applied (`false` if the toast was already gone — an expected race).
-  Future<bool> update(String id, Toast toast, {String? actionId}) {
+  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) {
     throw UnimplementedError('update() has not been implemented.');
   }
 
@@ -57,6 +59,20 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
   /// facade can reconcile its registry in one pass.
   Future<List<String>> dismissAll() {
     throw UnimplementedError('dismissAll() has not been implemented.');
+  }
+
+  /// Clears a `loadingOnPress` action's spinner and re-arms the toast's
+  /// auto-dismiss without removing it — used when the action's async work
+  /// finished but `dismissOnPress` is false (the toast should stay).
+  Future<void> finishAction(String id) {
+    throw UnimplementedError('finishAction() has not been implemented.');
+  }
+
+  /// Test / demo only: simulates an action-button tap natively (drives the
+  /// loading spinner + lifecycle for a `loadingOnPress` action) since a real
+  /// touch can't be synthesized in an automated reel.
+  Future<void> debugTriggerAction(String id) {
+    throw UnimplementedError('debugTriggerAction() has not been implemented.');
   }
 
   /// Advisory device geometry / capability snapshot (Dynamic Island, safe area,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
@@ -14,6 +15,7 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
   final List<String> liveIds = [];
   final Map<String, Toast> shown = {};
   final List<String> updated = [];
+  final List<String> finished = [];
   bool acceptShows = true;
 
   @override
@@ -23,20 +25,23 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
   Future<void> configure(LiquidToastsConfig config) async {}
 
   @override
-  Future<bool> show(String id, Toast toast, {String? actionId}) async {
+  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     shown[id] = toast;
     if (acceptShows) liveIds.add(id);
     return acceptShows;
   }
 
   @override
-  Future<bool> update(String id, Toast toast, {String? actionId}) async {
+  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     updated.add(id);
     return liveIds.contains(id);
   }
 
   @override
   Future<bool> dismiss(String id) async => liveIds.remove(id);
+
+  @override
+  Future<void> finishAction(String id) async => finished.add(id);
 
   @override
   Future<List<String>> dismissAll() async {
@@ -115,6 +120,50 @@ void main() {
     LiquidToasts.debugEmit(ToastEvent(
         id: handle.id, kind: ToastEventKind.action, actionId: null));
     expect(taps, 1);
+  });
+
+  test('async action (loadingOnPress) runs onPressed then dismisses', () async {
+    var ran = false;
+    final handle = await LiquidToasts.show(Toast(
+      message: 'x',
+      duration: null,
+      action: ToastAction(
+        label: 'Go',
+        loadingOnPress: true,
+        onPressed: () async {
+          ran = true;
+        },
+      ),
+    ));
+    LiquidToasts.debugEmit(ToastEvent(
+        id: handle.id, kind: ToastEventKind.action, actionId: null));
+    await Future<void>.delayed(Duration.zero);
+    expect(ran, isTrue);
+    expect(fake.liveIds, isNot(contains(handle.id))); // dismissed on completion
+    expect(fake.finished, isEmpty);
+  });
+
+  test('async action with dismissOnPress:false finishes without dismissing',
+      () async {
+    var ran = false;
+    final handle = await LiquidToasts.show(Toast(
+      message: 'x',
+      duration: null,
+      action: ToastAction(
+        label: 'Go',
+        loadingOnPress: true,
+        dismissOnPress: false,
+        onPressed: () async {
+          ran = true;
+        },
+      ),
+    ));
+    LiquidToasts.debugEmit(ToastEvent(
+        id: handle.id, kind: ToastEventKind.action, actionId: null));
+    await Future<void>.delayed(Duration.zero);
+    expect(ran, isTrue);
+    expect(fake.finished, contains(handle.id)); // spinner cleared, toast kept
+    expect(fake.liveIds, contains(handle.id)); // not dismissed
   });
 
   test('showLoading returns the value and morphs to success', () async {

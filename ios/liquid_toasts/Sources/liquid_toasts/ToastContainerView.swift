@@ -70,6 +70,7 @@ struct ToastContainerView: View {
           ToastView(
             toast: toast,
             deviceWidth: hostWidth,
+            isActionLoading: manager.busyActionIds.contains(toast.id),
             onTapBody: { manager.handleBodyTap(id: toast.id) },
             onAction: { manager.handleAction(id: toast.id) },
             onSwipe: { manager.handleSwipe(id: toast.id) },

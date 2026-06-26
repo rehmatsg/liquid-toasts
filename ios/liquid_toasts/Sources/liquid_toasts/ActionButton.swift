@@ -4,6 +4,10 @@ import SwiftUI
 /// (adaptive) unless an explicit color override was supplied.
 struct ActionButton: View {
   let action: ToastActionModel
+  /// Driven by the manager: true while a `loadingOnPress` action's async
+  /// `onPressed` runs — the label is replaced by a spinner until the toast is
+  /// dismissed (by Dart, when `onPressed` resolves).
+  let isLoading: Bool
   let onTap: () -> Void
   @Environment(\.colorScheme) private var scheme
 
@@ -13,15 +17,24 @@ struct ActionButton: View {
 
   var body: some View {
     Button(action: onTap) {
-      Text(action.label)
-        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-        .foregroundStyle(color)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-        .background(color.opacity(scheme == .dark ? 0.24 : 0.15), in: Capsule())
-        .contentShape(Capsule())
+      ZStack {
+        // Kept (transparent) while loading so the button width doesn't jump.
+        Text(action.label)
+          .font(.system(.subheadline, design: .rounded).weight(.semibold))
+          .foregroundStyle(color)
+          .opacity(isLoading ? 0 : 1)
+        if isLoading {
+          SpinnerView(color: color)
+        }
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 9)
+      .background(color.opacity(scheme == .dark ? 0.24 : 0.15), in: Capsule())
+      .contentShape(Capsule())
     }
     .buttonStyle(PressableButtonStyle())
+    .disabled(isLoading)
+    .animation(.easeInOut(duration: 0.2), value: isLoading)
     .fixedSize()
   }
 }

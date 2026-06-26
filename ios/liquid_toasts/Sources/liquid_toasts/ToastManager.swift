@@ -17,6 +17,11 @@ final class ToastManager: ObservableObject {
   /// entrance slide distance.
   @Published var topSafeArea: CGFloat = 0
 
+  /// Ids whose action button is mid-async (`loadingOnPress`) — the button shows
+  /// a spinner. Cleared when the toast is torn down (the facade dismisses it
+  /// once `onPressed` resolves).
+  @Published var busyActionIds: Set<String> = []
+
   /// Max toasts shown per position (a vertical list); the oldest is dismissed
   /// when a new toast would exceed this.
   var maxVisible: Int = 5
@@ -71,6 +76,7 @@ final class ToastManager: ObservableObject {
     var updated = toasts[index]
     updated.applyContent(from: toast)
     cancelDeadline(id)
+    busyActionIds.remove(id) // a morph supersedes any in-flight action spinner
     // Morph in place — the list keeps every toast visible, so there is no need
     // to reorder a resolving toast.
     withAnimation(stackSpring) {
@@ -99,6 +105,7 @@ final class ToastManager: ObservableObject {
     for task in deadlineTasks.values { task.cancel() }
     deadlineTasks.removeAll()
     pausedRemaining.removeAll()
+    busyActionIds.removeAll()
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
     notifyEmpty()
@@ -109,6 +116,16 @@ final class ToastManager: ObservableObject {
   func handleAction(id: String) {
     guard let model = toasts.first(where: { $0.id == id }), let action = model.action else { return }
     emitAction(id: id, actionId: action.actionId)
+    if action.loadingOnPress {
+      // Async action: show the spinner and keep the toast up while the Dart
+      // `onPressed` future runs; the facade dismisses it on completion. Disarm
+      // auto-dismiss so the timer can't fire mid-task.
+      busyActionIds.insert(id)
+      cancelDeadline(id)
+      setDeadline(id, nil)
+      pausedRemaining[id] = nil
+      return
+    }
     if action.dismissOnPress { teardown(id: id, reason: "action") }
   }
 
@@ -134,6 +151,15 @@ final class ToastManager: ObservableObject {
     pausedRemaining[id] = remaining
     cancelDeadline(id)
     toasts[index].deadline = nil
+  }
+
+  /// Clears a `loadingOnPress` action's spinner and re-arms the toast's
+  /// auto-dismiss without removing it — for an async action whose `onPressed`
+  /// finished but `dismissOnPress` is false (the toast stays, button idle again).
+  func finishAction(id: String) {
+    guard busyActionIds.contains(id) else { return }
+    busyActionIds.remove(id)
+    if let model = toasts.first(where: { $0.id == id }) { arm(model) }
   }
 
   /// Resumes a paused toast's auto-dismiss with its banked remaining time.
@@ -174,6 +200,7 @@ final class ToastManager: ObservableObject {
     guard toasts.contains(where: { $0.id == id }) else { return }
     cancelDeadline(id)
     pausedRemaining[id] = nil
+    busyActionIds.remove(id)
     withAnimation(stackSpring) { toasts.removeAll { $0.id == id } }
     frames[id] = nil
     emitDismissed(id, reason: reason)

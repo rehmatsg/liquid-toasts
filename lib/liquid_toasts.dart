@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 
 import 'liquid_toasts_platform_interface.dart';
 import 'src/ids.dart';
@@ -278,7 +280,9 @@ class LiquidToasts {
       onTap: toast.onTap,
     );
     final handle = ToastHandle.internal(id, completer, _update, _dismiss);
-    final accepted = await _platform.show(id, toast, actionId: actionId);
+    final imageBytes = await _resolveImageBytes(toast.leadingImage);
+    final accepted =
+        await _platform.show(id, toast, actionId: actionId, imageBytes: imageBytes);
     if (!accepted) {
       _complete(id, ToastDismissReason.channelLost);
     }
@@ -292,7 +296,38 @@ class LiquidToasts {
     reg.action = toast.action;
     reg.activeActionId = actionId;
     reg.onTap = toast.onTap;
-    return _platform.update(id, toast, actionId: actionId);
+    final imageBytes = await _resolveImageBytes(toast.leadingImage);
+    return _platform.update(id, toast, actionId: actionId, imageBytes: imageBytes);
+  }
+
+  /// Resolves an [ImageProvider] to PNG bytes via the Flutter image pipeline
+  /// (no `BuildContext` needed) to hand to the native renderer. Returns null if
+  /// there's no image or it fails to load — the toast then shows without one.
+  static Future<Uint8List?> _resolveImageBytes(ImageProvider? provider) async {
+    if (provider == null) return null;
+    final stream = provider.resolve(ImageConfiguration.empty);
+    final completer = Completer<ui.Image>();
+    final listener = ImageStreamListener(
+      (ImageInfo info, bool _) {
+        if (!completer.isCompleted) completer.complete(info.image);
+      },
+      onError: (Object e, StackTrace? st) {
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+    );
+    stream.addListener(listener);
+    try {
+      // Bound the wait so a stalled provider (e.g. an unreachable NetworkImage)
+      // can't hang show()/update() forever — the toast then renders without it.
+      final image = await completer.future.timeout(const Duration(seconds: 5));
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data?.buffer.asUint8List();
+    } catch (e, st) {
+      _logError(e, st);
+      return null;
+    } finally {
+      stream.removeListener(listener);
+    }
   }
 
   static Future<void> _dismiss(String id) async {
@@ -328,7 +363,8 @@ class LiquidToasts {
       case ToastEventKind.action:
         // Drop a stale tap that arrived after an update swapped the action.
         if (e.actionId != null && e.actionId != reg.activeActionId) return;
-        _guarded(reg.action?.onPressed);
+        final action = reg.action;
+        if (action != null) _runAction(e.id, action);
       case ToastEventKind.tap:
         _guarded(reg.onTap);
       case ToastEventKind.dismissed:
@@ -336,6 +372,28 @@ class LiquidToasts {
       case ToastEventKind.shown:
       case ToastEventKind.unknown:
         break;
+    }
+  }
+
+  /// Runs an action's [ToastAction.onPressed] (sync or async), guarded. For a
+  /// [ToastAction.loadingOnPress] action native keeps the toast up (spinner) while
+  /// the future runs, so dismiss it on completion (when [dismissOnPress]).
+  static Future<void> _runAction(String id, ToastAction action) async {
+    try {
+      await action.onPressed();
+    } catch (e, st) {
+      _logError(e, st);
+    }
+    // Sync actions: native already dismissed on tap (per dismissOnPress).
+    if (!action.loadingOnPress) return;
+    // An update() during the await may have swapped the action — if so the new
+    // registration owns the lifecycle, so leave it alone.
+    if (_registry[id]?.action != action) return;
+    if (action.dismissOnPress) {
+      await _dismiss(id);
+    } else {
+      // Keep the toast up: clear the spinner and re-arm its auto-dismiss.
+      await _platform.finishAction(id);
     }
   }
 
@@ -383,4 +441,11 @@ class LiquidToasts {
   /// Emits a native event into the facade's router. Test-only.
   @visibleForTesting
   static void debugEmit(ToastEvent event) => _onEvent(event);
+
+  /// Simulates an action-button tap on the live toast [id] (drives the native
+  /// loading spinner + lifecycle for a `loadingOnPress` action). For tests and
+  /// the example's async-action demo, which can't synthesize a real touch.
+  @visibleForTesting
+  static Future<void> debugTriggerAction(String id) =>
+      _platform.debugTriggerAction(id);
 }

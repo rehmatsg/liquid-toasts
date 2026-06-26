@@ -37,19 +37,19 @@ class MethodChannelLiquidToasts extends LiquidToastsPlatform {
       );
 
   @override
-  Future<bool> show(String id, Toast toast, {String? actionId}) async {
+  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     final res = await methodChannel.invokeMapMethod<String, Object?>(
       'show',
-      _envelope({'id': id, ...toast.toMap(actionId: actionId)}),
+      _envelope({'id': id, ...toast.toMap(actionId: actionId, imageBytes: imageBytes)}),
     );
     return (res?['accepted'] as bool?) ?? true;
   }
 
   @override
-  Future<bool> update(String id, Toast toast, {String? actionId}) async {
+  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     final res = await methodChannel.invokeMapMethod<String, Object?>(
       'update',
-      _envelope({'id': id, ...toast.toMap(actionId: actionId)}),
+      _envelope({'id': id, ...toast.toMap(actionId: actionId, imageBytes: imageBytes)}),
     );
     return (res?['applied'] as bool?) ?? false;
   }

@@ -93,8 +93,11 @@ struct ToastView: View {
     toast.progress != nil && toast.progressStyle == .circular
   }
 
-  /// Whether anything occupies the leading slot (icon / spinner / progress ring).
-  private var showsLeading: Bool { showsCircularProgress || showsIcon }
+  /// A leading raster image (avatar / thumbnail) takes the leading slot.
+  private var showsImage: Bool { toast.image != nil }
+
+  /// Whether anything occupies the leading slot (image / ring / spinner / icon).
+  private var showsLeading: Bool { showsImage || showsCircularProgress || showsIcon }
 
   /// Accent for the progress ring / bar: the icon-color override, then the tint,
   /// then the semantic color (falling back to the accent for `.none`).
@@ -108,7 +111,9 @@ struct ToastView: View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
     HStack(alignment: .center, spacing: rowSpacing) {
-      if showsCircularProgress {
+      if let image = toast.image {
+        AvatarView(image: image)
+      } else if showsCircularProgress {
         CircularProgressView(value: toast.progress ?? 0, tint: accentTint)
       } else if showsIcon {
         IconView(toast: toast)
@@ -368,5 +373,22 @@ struct CircularProgressView: View {
         .animation(.easeInOut(duration: 0.25), value: clamped)
     }
     .frame(width: 20, height: 20)
+  }
+}
+
+// MARK: - Avatar
+
+/// A circular avatar / thumbnail in the leading slot — a raster image passed
+/// from Dart (any `ImageProvider`, resolved to bytes), in place of the SF Symbol.
+struct AvatarView: View {
+  let image: UIImage
+
+  var body: some View {
+    Image(uiImage: image)
+      .resizable()
+      .scaledToFill()
+      .frame(width: 26, height: 26)
+      .clipShape(Circle())
+      .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
   }
 }

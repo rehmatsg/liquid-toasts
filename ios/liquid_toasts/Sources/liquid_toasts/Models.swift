@@ -1,3 +1,4 @@
+import Flutter
 import SwiftUI
 import UIKit
 
@@ -181,6 +182,7 @@ struct ToastModel: Identifiable {
   var message: String
   var title: String?
   var icon: String?
+  var image: UIImage?
   var semantic: ToastSemantic
   var style: ToastStyleModel?
   var position: ToastPositionModel
@@ -209,6 +211,9 @@ struct ToastModel: Identifiable {
     self.message = message
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String
+    if let typed = map["image"] as? FlutterStandardTypedData {
+      self.image = UIImage(data: typed.data)
+    }
     self.semantic = (map["semantic"] as? String).flatMap(ToastSemantic.init(rawValue:)) ?? .none
     self.style = ToastStyleModel(map["style"])
     self.position = (map["position"] as? String).flatMap(ToastPositionModel.init(rawValue:)) ?? .topCenter
@@ -234,6 +239,7 @@ struct ToastModel: Identifiable {
     message = other.message
     title = other.title
     icon = other.icon
+    image = other.image
     semantic = other.semantic
     style = other.style
     position = other.position

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
@@ -23,14 +24,14 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
   Future<void> configure(LiquidToastsConfig config) async {}
 
   @override
-  Future<bool> show(String id, Toast toast, {String? actionId}) async {
+  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     shown[id] = toast;
     if (acceptShows) liveIds.add(id);
     return acceptShows;
   }
 
   @override
-  Future<bool> update(String id, Toast toast, {String? actionId}) async {
+  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
     updated.add(id);
     return liveIds.contains(id);
   }

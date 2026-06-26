@@ -1,5 +1,7 @@
+import 'dart:typed_data' show Uint8List;
 import 'dart:ui' show VoidCallback;
 
+import 'package:flutter/painting.dart' show ImageProvider;
 import 'package:meta/meta.dart';
 
 import 'toast_action.dart';
@@ -18,6 +20,7 @@ class Toast {
     required this.message,
     this.title,
     this.icon,
+    this.leadingImage,
     this.semantic = ToastSemantic.none,
     this.style,
     this.position = ToastPosition.topCenter,
@@ -47,6 +50,7 @@ class Toast {
     this.semanticsLabel,
     this.maxLines = 1,
   })  : semantic = ToastSemantic.none,
+        leadingImage = null,
         duration = null,
         action = null,
         onTap = null,
@@ -230,6 +234,13 @@ class Toast {
   /// derived from [semantic] natively. An explicit value wins.
   final String? icon;
 
+  /// A raster image shown in the leading slot (a circular avatar / thumbnail),
+  /// in place of the SF Symbol. Any Flutter [ImageProvider] works
+  /// (`AssetImage`, `NetworkImage`, `MemoryImage`, …); it's resolved to bytes on
+  /// the Dart side and handed to the native renderer, so the usual Flutter image
+  /// pipeline (and its caching) applies. Wins over [icon] when set.
+  final ImageProvider? leadingImage;
+
   final ToastSemantic semantic;
   final ToastStyleOverride? style;
   final ToastPosition position;
@@ -294,10 +305,11 @@ class Toast {
 
   /// Wire format. [actionId] is the id minted for [action] (omit when there is
   /// no action). Colors serialize as `{light,dark}` maps; durations as ms.
-  Map<String, Object?> toMap({String? actionId}) => {
+  Map<String, Object?> toMap({String? actionId, Uint8List? imageBytes}) => {
         'message': message,
         if (title != null) 'title': title,
         if (icon != null) 'icon': icon,
+        'image': ?imageBytes,
         'semantic': semantic.name,
         if (style != null) 'style': style!.toMap(),
         'position': position.name,

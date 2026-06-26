@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 
 import 'liquid_toasts_platform_interface.dart';
 import 'src/ids.dart';
@@ -278,7 +280,9 @@ class LiquidToasts {
       onTap: toast.onTap,
     );
     final handle = ToastHandle.internal(id, completer, _update, _dismiss);
-    final accepted = await _platform.show(id, toast, actionId: actionId);
+    final imageBytes = await _resolveImageBytes(toast.leadingImage);
+    final accepted =
+        await _platform.show(id, toast, actionId: actionId, imageBytes: imageBytes);
     if (!accepted) {
       _complete(id, ToastDismissReason.channelLost);
     }
@@ -292,7 +296,37 @@ class LiquidToasts {
     reg.action = toast.action;
     reg.activeActionId = actionId;
     reg.onTap = toast.onTap;
-    return _platform.update(id, toast, actionId: actionId);
+    final imageBytes = await _resolveImageBytes(toast.leadingImage);
+    return _platform.update(id, toast, actionId: actionId, imageBytes: imageBytes);
+  }
+
+  /// Resolves an [ImageProvider] to PNG bytes via the Flutter image pipeline
+  /// (no `BuildContext` needed) to hand to the native renderer. Returns null if
+  /// there's no image or it fails to load — the toast then shows without one.
+  static Future<Uint8List?> _resolveImageBytes(ImageProvider? provider) async {
+    if (provider == null) return null;
+    try {
+      final stream = provider.resolve(ImageConfiguration.empty);
+      final completer = Completer<ui.Image>();
+      late final ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (ImageInfo info, bool _) {
+          if (!completer.isCompleted) completer.complete(info.image);
+          stream.removeListener(listener);
+        },
+        onError: (Object e, StackTrace? st) {
+          if (!completer.isCompleted) completer.completeError(e);
+          stream.removeListener(listener);
+        },
+      );
+      stream.addListener(listener);
+      final image = await completer.future;
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data?.buffer.asUint8List();
+    } catch (e, st) {
+      _logError(e, st);
+      return null;
+    }
   }
 
   static Future<void> _dismiss(String id) async {

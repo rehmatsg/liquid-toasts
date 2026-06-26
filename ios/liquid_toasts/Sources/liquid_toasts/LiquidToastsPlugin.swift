@@ -91,6 +91,12 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
       let reason = (args?["reason"] as? String) ?? "dismissAll"
       result(["dismissedIds": manager.dismissAll(reason: reason)])
 
+    case "debugTriggerAction":
+      // Simulates an action-button tap (drives the spinner + lifecycle); used by
+      // the example's async-action demo, which can't synthesize a real touch.
+      if let id = args?["id"] as? String { manager.handleAction(id: id) }
+      result(nil)
+
     case "queryGeometry":
       result(DynamicIslandGeometry.geometrySnapshot(ToastOverlayHost.activeWindow()))
 

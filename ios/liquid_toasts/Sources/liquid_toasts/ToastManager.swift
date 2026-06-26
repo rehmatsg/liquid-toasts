@@ -17,6 +17,11 @@ final class ToastManager: ObservableObject {
   /// entrance slide distance.
   @Published var topSafeArea: CGFloat = 0
 
+  /// Ids whose action button is mid-async (`loadingOnPress`) — the button shows
+  /// a spinner. Cleared when the toast is torn down (the facade dismisses it
+  /// once `onPressed` resolves).
+  @Published var busyActionIds: Set<String> = []
+
   /// Max toasts shown per position (a vertical list); the oldest is dismissed
   /// when a new toast would exceed this.
   var maxVisible: Int = 5
@@ -99,6 +104,7 @@ final class ToastManager: ObservableObject {
     for task in deadlineTasks.values { task.cancel() }
     deadlineTasks.removeAll()
     pausedRemaining.removeAll()
+    busyActionIds.removeAll()
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
     notifyEmpty()
@@ -109,6 +115,16 @@ final class ToastManager: ObservableObject {
   func handleAction(id: String) {
     guard let model = toasts.first(where: { $0.id == id }), let action = model.action else { return }
     emitAction(id: id, actionId: action.actionId)
+    if action.loadingOnPress {
+      // Async action: show the spinner and keep the toast up while the Dart
+      // `onPressed` future runs; the facade dismisses it on completion. Disarm
+      // auto-dismiss so the timer can't fire mid-task.
+      busyActionIds.insert(id)
+      cancelDeadline(id)
+      setDeadline(id, nil)
+      pausedRemaining[id] = nil
+      return
+    }
     if action.dismissOnPress { teardown(id: id, reason: "action") }
   }
 
@@ -174,6 +190,7 @@ final class ToastManager: ObservableObject {
     guard toasts.contains(where: { $0.id == id }) else { return }
     cancelDeadline(id)
     pausedRemaining[id] = nil
+    busyActionIds.remove(id)
     withAnimation(stackSpring) { toasts.removeAll { $0.id == id } }
     frames[id] = nil
     emitDismissed(id, reason: reason)

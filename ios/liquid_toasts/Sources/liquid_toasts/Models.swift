@@ -162,6 +162,7 @@ struct ToastActionModel {
   let role: ActionRole
   let color: AdaptiveColor?
   let dismissOnPress: Bool
+  let loadingOnPress: Bool
 
   init?(_ value: Any?) {
     guard let map = value as? [String: Any],
@@ -172,6 +173,7 @@ struct ToastActionModel {
     self.role = (map["role"] as? String).flatMap(ActionRole.init(rawValue:)) ?? .primary
     self.color = AdaptiveColor(map["color"])
     self.dismissOnPress = ltBool(map["dismissOnPress"]) ?? true
+    self.loadingOnPress = ltBool(map["loadingOnPress"]) ?? false
   }
 }
 

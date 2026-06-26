@@ -362,7 +362,8 @@ class LiquidToasts {
       case ToastEventKind.action:
         // Drop a stale tap that arrived after an update swapped the action.
         if (e.actionId != null && e.actionId != reg.activeActionId) return;
-        _guarded(reg.action?.onPressed);
+        final action = reg.action;
+        if (action != null) _runAction(e.id, action);
       case ToastEventKind.tap:
         _guarded(reg.onTap);
       case ToastEventKind.dismissed:
@@ -370,6 +371,20 @@ class LiquidToasts {
       case ToastEventKind.shown:
       case ToastEventKind.unknown:
         break;
+    }
+  }
+
+  /// Runs an action's [ToastAction.onPressed] (sync or async), guarded. For a
+  /// [ToastAction.loadingOnPress] action native keeps the toast up (spinner) while
+  /// the future runs, so dismiss it on completion (when [dismissOnPress]).
+  static Future<void> _runAction(String id, ToastAction action) async {
+    try {
+      await action.onPressed();
+    } catch (e, st) {
+      _logError(e, st);
+    }
+    if (action.loadingOnPress && action.dismissOnPress) {
+      await _dismiss(id);
     }
   }
 
@@ -417,4 +432,11 @@ class LiquidToasts {
   /// Emits a native event into the facade's router. Test-only.
   @visibleForTesting
   static void debugEmit(ToastEvent event) => _onEvent(event);
+
+  /// Simulates an action-button tap on the live toast [id] (drives the native
+  /// loading spinner + lifecycle for a `loadingOnPress` action). For tests and
+  /// the example's async-action demo, which can't synthesize a real touch.
+  @visibleForTesting
+  static Future<void> debugTriggerAction(String id) =>
+      _platform.debugTriggerAction(id);
 }

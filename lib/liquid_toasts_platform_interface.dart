@@ -61,6 +61,13 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
     throw UnimplementedError('dismissAll() has not been implemented.');
   }
 
+  /// Test / demo only: simulates an action-button tap natively (drives the
+  /// loading spinner + lifecycle for a `loadingOnPress` action) since a real
+  /// touch can't be synthesized in an automated reel.
+  Future<void> debugTriggerAction(String id) {
+    throw UnimplementedError('debugTriggerAction() has not been implemented.');
+  }
+
   /// Advisory device geometry / capability snapshot (Dynamic Island, safe area,
   /// glass mode, …). Native always recomputes real geometry at render time.
   Future<Map<String, dynamic>> queryGeometry() {

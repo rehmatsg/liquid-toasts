@@ -7,6 +7,8 @@ struct ToastView: View {
   let toast: ToastModel
   /// Width of the overlay host (device width); drives the multiline width.
   let deviceWidth: CGFloat
+  /// True while the action's async `onPressed` runs — the button shows a spinner.
+  let isActionLoading: Bool
   let onTapBody: () -> Void
   let onAction: () -> Void
   let onSwipe: () -> Void
@@ -149,7 +151,7 @@ struct ToastView: View {
       .frame(maxWidth: isMultiline ? .infinity : 260, alignment: .leading)
 
       if let action = toast.action {
-        ActionButton(action: action, onTap: onAction)
+        ActionButton(action: action, isLoading: isActionLoading, onTap: onAction)
           .background(GeometryReader { g in
             Color.clear.preference(key: ActionWidthKey.self, value: g.size.width)
           })

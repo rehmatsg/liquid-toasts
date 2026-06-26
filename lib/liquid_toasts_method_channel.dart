@@ -74,6 +74,12 @@ class MethodChannelLiquidToasts extends LiquidToastsPlatform {
   }
 
   @override
+  Future<void> debugTriggerAction(String id) => methodChannel.invokeMethod<void>(
+        'debugTriggerAction',
+        _envelope({'id': id}),
+      );
+
+  @override
   Future<Map<String, dynamic>> queryGeometry() async {
     final res = await methodChannel.invokeMapMethod<String, Object?>(
       'queryGeometry',

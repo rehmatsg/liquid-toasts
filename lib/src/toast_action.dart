@@ -46,8 +46,10 @@ class ToastAction {
   final bool dismissOnPress;
 
   /// When true, pressing replaces the label with a spinner and keeps the toast
-  /// up until [onPressed]'s future resolves — then dismisses (if
-  /// [dismissOnPress]). Pair with an async [onPressed].
+  /// up until [onPressed]'s future resolves. Then, if [dismissOnPress] is true
+  /// (the default) the toast dismisses; otherwise the spinner clears, the button
+  /// returns to its label, and auto-dismiss re-arms. Pair with an async
+  /// [onPressed].
   final bool loadingOnPress;
 
   /// Wire format. [actionId] correlates a native `actionTapped` event back to

@@ -76,6 +76,7 @@ final class ToastManager: ObservableObject {
     var updated = toasts[index]
     updated.applyContent(from: toast)
     cancelDeadline(id)
+    busyActionIds.remove(id) // a morph supersedes any in-flight action spinner
     // Morph in place — the list keeps every toast visible, so there is no need
     // to reorder a resolving toast.
     withAnimation(stackSpring) {
@@ -150,6 +151,15 @@ final class ToastManager: ObservableObject {
     pausedRemaining[id] = remaining
     cancelDeadline(id)
     toasts[index].deadline = nil
+  }
+
+  /// Clears a `loadingOnPress` action's spinner and re-arms the toast's
+  /// auto-dismiss without removing it — for an async action whose `onPressed`
+  /// finished but `dismissOnPress` is false (the toast stays, button idle again).
+  func finishAction(id: String) {
+    guard busyActionIds.contains(id) else { return }
+    busyActionIds.remove(id)
+    if let model = toasts.first(where: { $0.id == id }) { arm(model) }
   }
 
   /// Resumes a paused toast's auto-dismiss with its banked remaining time.

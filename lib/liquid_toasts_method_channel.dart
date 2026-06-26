@@ -74,6 +74,12 @@ class MethodChannelLiquidToasts extends LiquidToastsPlatform {
   }
 
   @override
+  Future<void> finishAction(String id) => methodChannel.invokeMethod<void>(
+        'finishAction',
+        _envelope({'id': id}),
+      );
+
+  @override
   Future<void> debugTriggerAction(String id) => methodChannel.invokeMethod<void>(
         'debugTriggerAction',
         _envelope({'id': id}),

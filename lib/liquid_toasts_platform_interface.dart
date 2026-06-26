@@ -61,6 +61,13 @@ abstract class LiquidToastsPlatform extends PlatformInterface {
     throw UnimplementedError('dismissAll() has not been implemented.');
   }
 
+  /// Clears a `loadingOnPress` action's spinner and re-arms the toast's
+  /// auto-dismiss without removing it — used when the action's async work
+  /// finished but `dismissOnPress` is false (the toast should stay).
+  Future<void> finishAction(String id) {
+    throw UnimplementedError('finishAction() has not been implemented.');
+  }
+
   /// Test / demo only: simulates an action-button tap natively (drives the
   /// loading spinner + lifecycle for a `loadingOnPress` action) since a real
   /// touch can't be synthesized in an automated reel.

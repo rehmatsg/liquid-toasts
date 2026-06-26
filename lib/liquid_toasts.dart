@@ -305,27 +305,28 @@ class LiquidToasts {
   /// there's no image or it fails to load — the toast then shows without one.
   static Future<Uint8List?> _resolveImageBytes(ImageProvider? provider) async {
     if (provider == null) return null;
+    final stream = provider.resolve(ImageConfiguration.empty);
+    final completer = Completer<ui.Image>();
+    final listener = ImageStreamListener(
+      (ImageInfo info, bool _) {
+        if (!completer.isCompleted) completer.complete(info.image);
+      },
+      onError: (Object e, StackTrace? st) {
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+    );
+    stream.addListener(listener);
     try {
-      final stream = provider.resolve(ImageConfiguration.empty);
-      final completer = Completer<ui.Image>();
-      late final ImageStreamListener listener;
-      listener = ImageStreamListener(
-        (ImageInfo info, bool _) {
-          if (!completer.isCompleted) completer.complete(info.image);
-          stream.removeListener(listener);
-        },
-        onError: (Object e, StackTrace? st) {
-          if (!completer.isCompleted) completer.completeError(e);
-          stream.removeListener(listener);
-        },
-      );
-      stream.addListener(listener);
-      final image = await completer.future;
+      // Bound the wait so a stalled provider (e.g. an unreachable NetworkImage)
+      // can't hang show()/update() forever — the toast then renders without it.
+      final image = await completer.future.timeout(const Duration(seconds: 5));
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       return data?.buffer.asUint8List();
     } catch (e, st) {
       _logError(e, st);
       return null;
+    } finally {
+      stream.removeListener(listener);
     }
   }
 
@@ -383,8 +384,16 @@ class LiquidToasts {
     } catch (e, st) {
       _logError(e, st);
     }
-    if (action.loadingOnPress && action.dismissOnPress) {
+    // Sync actions: native already dismissed on tap (per dismissOnPress).
+    if (!action.loadingOnPress) return;
+    // An update() during the await may have swapped the action — if so the new
+    // registration owns the lifecycle, so leave it alone.
+    if (_registry[id]?.action != action) return;
+    if (action.dismissOnPress) {
       await _dismiss(id);
+    } else {
+      // Keep the toast up: clear the spinner and re-arm its auto-dismiss.
+      await _platform.finishAction(id);
     }
   }
 

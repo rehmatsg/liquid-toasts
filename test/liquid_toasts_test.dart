@@ -15,6 +15,7 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
   final List<String> liveIds = [];
   final Map<String, Toast> shown = {};
   final List<String> updated = [];
+  final List<String> finished = [];
   bool acceptShows = true;
 
   @override
@@ -38,6 +39,9 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
 
   @override
   Future<bool> dismiss(String id) async => liveIds.remove(id);
+
+  @override
+  Future<void> finishAction(String id) async => finished.add(id);
 
   @override
   Future<List<String>> dismissAll() async {
@@ -116,6 +120,50 @@ void main() {
     LiquidToasts.debugEmit(ToastEvent(
         id: handle.id, kind: ToastEventKind.action, actionId: null));
     expect(taps, 1);
+  });
+
+  test('async action (loadingOnPress) runs onPressed then dismisses', () async {
+    var ran = false;
+    final handle = await LiquidToasts.show(Toast(
+      message: 'x',
+      duration: null,
+      action: ToastAction(
+        label: 'Go',
+        loadingOnPress: true,
+        onPressed: () async {
+          ran = true;
+        },
+      ),
+    ));
+    LiquidToasts.debugEmit(ToastEvent(
+        id: handle.id, kind: ToastEventKind.action, actionId: null));
+    await Future<void>.delayed(Duration.zero);
+    expect(ran, isTrue);
+    expect(fake.liveIds, isNot(contains(handle.id))); // dismissed on completion
+    expect(fake.finished, isEmpty);
+  });
+
+  test('async action with dismissOnPress:false finishes without dismissing',
+      () async {
+    var ran = false;
+    final handle = await LiquidToasts.show(Toast(
+      message: 'x',
+      duration: null,
+      action: ToastAction(
+        label: 'Go',
+        loadingOnPress: true,
+        dismissOnPress: false,
+        onPressed: () async {
+          ran = true;
+        },
+      ),
+    ));
+    LiquidToasts.debugEmit(ToastEvent(
+        id: handle.id, kind: ToastEventKind.action, actionId: null));
+    await Future<void>.delayed(Duration.zero);
+    expect(ran, isTrue);
+    expect(fake.finished, contains(handle.id)); // spinner cleared, toast kept
+    expect(fake.liveIds, contains(handle.id)); // not dismissed
   });
 
   test('showLoading returns the value and morphs to success', () async {

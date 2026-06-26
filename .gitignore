@@ -36,3 +36,6 @@ migrate_working_dir/
 .agents/
 .claude/
 skills-lock.json
+
+# Local demo recordings (tool/record_demo.sh)
+.demos/

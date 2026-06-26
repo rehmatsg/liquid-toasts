@@ -124,7 +124,9 @@ struct ToastView: View {
           Text(title)
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .foregroundStyle(foreground)
-            .lineLimit(1)
+            .multilineTextAlignment(.leading)
+            .lineLimit(toast.titleMaxLines)
+            .fixedSize(horizontal: false, vertical: true)
         }
         Text(toast.message)
           .font(.system(.subheadline, design: .rounded))

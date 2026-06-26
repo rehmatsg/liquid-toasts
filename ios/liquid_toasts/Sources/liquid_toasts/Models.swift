@@ -196,6 +196,7 @@ struct ToastModel: Identifiable {
   var haptic: ToastHapticKind
   var semanticsLabel: String?
   var maxLines: Int
+  var titleMaxLines: Int
   var tapToDismiss: Bool
   var hasTap: Bool
   var action: ToastActionModel?
@@ -228,6 +229,7 @@ struct ToastModel: Identifiable {
     self.haptic = (map["haptic"] as? String).flatMap(ToastHapticKind.init(rawValue:)) ?? .none
     self.semanticsLabel = map["semanticsLabel"] as? String
     self.maxLines = ltInt(map["maxLines"]) ?? 1
+    self.titleMaxLines = ltInt(map["titleMaxLines"]) ?? 1
     self.tapToDismiss = ltBool(map["tapToDismiss"]) ?? true
     self.hasTap = ltBool(map["hasTap"]) ?? false
     self.action = ToastActionModel(map["action"])
@@ -251,6 +253,7 @@ struct ToastModel: Identifiable {
     haptic = other.haptic
     semanticsLabel = other.semanticsLabel
     maxLines = other.maxLines
+    titleMaxLines = other.titleMaxLines
     tapToDismiss = other.tapToDismiss
     hasTap = other.hasTap
     action = other.action

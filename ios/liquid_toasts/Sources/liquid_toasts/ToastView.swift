@@ -109,6 +109,12 @@ struct ToastView: View {
     return toast.semantic == .none ? .accentColor : toast.semantic.tint
   }
 
+  /// Center the text on a compact, text-only toast: no leading glyph, no
+  /// trailing action, and not the full-width multiline layout.
+  private var centerText: Bool {
+    !showsLeading && toast.action == nil && !isMultiline
+  }
+
   private var content: some View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
@@ -121,21 +127,23 @@ struct ToastView: View {
         IconView(toast: toast)
       }
 
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: centerText ? .center : .leading, spacing: 2) {
         if let title = toast.title, !title.isEmpty {
           Text(title)
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .foregroundStyle(foreground)
-            .multilineTextAlignment(.leading)
+            .multilineTextAlignment(centerText ? .center : .leading)
             .lineLimit(toast.titleMaxLines)
             .fixedSize(horizontal: false, vertical: true)
         }
-        Text(toast.message)
-          .font(.system(.subheadline, design: .rounded))
-          .foregroundStyle(toast.title == nil ? foreground : foreground.opacity(0.85))
-          .multilineTextAlignment(.leading)
-          .lineLimit(toast.maxLines)
-          .fixedSize(horizontal: false, vertical: true)
+        if !toast.message.isEmpty {
+          Text(toast.message)
+            .font(.system(.subheadline, design: .rounded))
+            .foregroundStyle(toast.title == nil ? foreground : foreground.opacity(0.85))
+            .multilineTextAlignment(centerText ? .center : .leading)
+            .lineLimit(toast.maxLines)
+            .fixedSize(horizontal: false, vertical: true)
+        }
 
         if let progress = toast.progress, toast.progressStyle == .linear {
           ProgressView(value: max(0, min(1, progress)))
@@ -148,7 +156,7 @@ struct ToastView: View {
       }
       // Single-line caps the text column so the capsule never spans the screen;
       // multiline fills the fixed-width rounded rect.
-      .frame(maxWidth: isMultiline ? .infinity : 260, alignment: .leading)
+      .frame(maxWidth: isMultiline ? .infinity : 260, alignment: centerText ? .center : .leading)
 
       if let action = toast.action {
         ActionButton(action: action, isLoading: isActionLoading, onTap: onAction)

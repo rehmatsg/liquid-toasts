@@ -50,7 +50,8 @@ Future<void> _progressLinear() async {
   }
   await handle.update(const Toast(
     title: 'Backed up',
-    message: 'Your library is safe in iCloud.',
+    message: 'Your photo library is safely backed up to iCloud — you can close '
+        'the app now.',
     icon: 'checkmark.circle.fill',
     semantic: ToastSemantic.success,
     maxLines: 2,

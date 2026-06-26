@@ -195,7 +195,11 @@ struct ToastView: View {
       .hidden()
       .onPreferenceChange(MessageHeightKey.self) { height in
         let lineHeight = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
-        isMultiline = deviceWidth > 0 && height > lineHeight * 1.5
+        // Latch on: once a toast wraps to multiline, keep the multiline layout
+        // for the rest of its life. A later morph to a shorter message (e.g. an
+        // upload's progress -> "done") then animates in place instead of
+        // snapping from the wide rounded rect back to a hugging capsule.
+        if deviceWidth > 0 && height > lineHeight * 1.5 { isMultiline = true }
       }
   }
 

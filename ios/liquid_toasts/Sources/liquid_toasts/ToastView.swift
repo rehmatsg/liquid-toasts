@@ -111,7 +111,7 @@ struct ToastView: View {
     // text column.
     HStack(alignment: .center, spacing: rowSpacing) {
       if let image = toast.image {
-        AvatarView(image: image)
+        AvatarView(image: image.uiImage)
       } else if showsCircularProgress {
         CircularProgressView(value: toast.progress ?? 0, tint: accentTint)
       } else if showsIcon {

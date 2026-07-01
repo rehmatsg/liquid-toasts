@@ -6,9 +6,9 @@ import 'package:liquid_toasts/liquid_toasts.dart';
 /// driven externally with `simctl` (background the app by launching another
 /// app, foreground it with `simctl launch`):
 ///
-///   BGPROBE:READY                     app is up
-///   BGPROBE:SHOWN:<n>                 toast n shown
-///   BGPROBE:DISMISSED:<n>:<reason>    toast n resolved, with its wire reason
+///   `BGPROBE:READY`                     app is up
+///   `BGPROBE:SHOWN:<n>`                 toast n shown
+///   `BGPROBE:DISMISSED:<n>:<reason>`    toast n resolved, with its wire reason
 ///
 /// Scenario A: a 5 s toast backgrounded for ~7 s must resolve
 /// `appBackgrounded` on foregrounding (deadline passed while away).

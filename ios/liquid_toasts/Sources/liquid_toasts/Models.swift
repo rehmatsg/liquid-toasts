@@ -102,7 +102,7 @@ extension Color {
 
 /// A `{light, dark}` color pair decoded from the wire, resolved natively against
 /// the current color scheme.
-struct AdaptiveColor {
+struct AdaptiveColor: Equatable {
   let light: Color
   let dark: Color
 
@@ -119,7 +119,7 @@ struct AdaptiveColor {
 
 // MARK: - Style / Action models
 
-struct ToastStyleModel {
+struct ToastStyleModel: Equatable {
   var tint: AdaptiveColor?
   var foreground: AdaptiveColor?
   var iconColor: AdaptiveColor?
@@ -138,7 +138,7 @@ struct ToastStyleModel {
   }
 }
 
-struct ToastActionModel {
+struct ToastActionModel: Equatable {
   let actionId: String
   let label: String
   let role: ActionRole
@@ -161,12 +161,22 @@ struct ToastActionModel {
 
 // MARK: - Toast model
 
-struct ToastModel: Identifiable {
+/// Reference-equality wrapper so [ToastModel] can synthesize `==` without
+/// ever comparing pixel data — a decoded image is immutable, so identity is
+/// the right equivalence.
+struct ToastImage: Equatable {
+  let uiImage: UIImage
+  static func == (lhs: ToastImage, rhs: ToastImage) -> Bool {
+    lhs.uiImage === rhs.uiImage
+  }
+}
+
+struct ToastModel: Identifiable, Equatable {
   let id: String
   var message: String
   var title: String?
   var icon: String?
-  var image: UIImage?
+  var image: ToastImage?
   var semantic: ToastSemantic
   var style: ToastStyleModel?
   var position: ToastPositionModel
@@ -199,7 +209,7 @@ struct ToastModel: Identifiable {
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String
     if let typed = map["image"] as? FlutterStandardTypedData {
-      self.image = UIImage(data: typed.data)
+      self.image = UIImage(data: typed.data).map(ToastImage.init)
     }
     self.semantic = map.enumValue("semantic", default: .none)
     self.style = ToastStyleModel(map["style"])

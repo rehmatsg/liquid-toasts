@@ -98,13 +98,42 @@ commands) and an event channel (native→Dart lifecycle events).
   toast gets its entrance transition.
 - `ToastManager.swift` — `@MainActor ObservableObject`, the single source of
   truth for the stack. Owns the queue, replace-by-`groupKey`, per-position
-  `maxVisible` enforcement, **wall-clock** auto-dismiss deadlines (survive
-  backgrounding), exactly-once teardown, and emits lifecycle events via `onEvent`.
-- `ToastContainerView` / `ToastView` / `IconView` / `GlassBackground` /
-  `ActionButton` — the SwiftUI render tree. `GlassBackground` picks real
-  `glassEffect` (iOS 26+) vs `.ultraThinMaterial` (iOS 17–25) vs opaque (Reduce
-  Transparency).
-- `Models.swift` — `ToastModel` and friends; mirrors the Dart wire format.
+  `maxVisible` enforcement, exactly-once teardown, and emits lifecycle events
+  via `onEvent`. **Publish surface is deliberately minimal**: `toasts` is the
+  one SwiftUI input (runtime flags like `isActionBusy` live on the models);
+  `frames` is intentionally NOT `@Published` (only the host's hit-test reads
+  it, imperatively — publishing it would invalidate the whole container on
+  every animation frame of a drag or spring); `stackGeneration` (plain var,
+  bumped only when the id set changes) is the container's animation token.
+- `DeadlineScheduler.swift` — owns ALL auto-dismiss timing: **wall-clock**
+  deadlines (survive backgrounding), watcher tasks, pause-on-touch banking,
+  and the background/foreground sweep. Timer state never touches the
+  `@Published` array. Flutter-free by design.
+- `ToastContainerView` — groups toasts by position; each row is an
+  equality-gated `ToastRow` (`.equatable()`), so a change to one toast never
+  re-renders its siblings. The container-level `.animation(motion, value:)`
+  is **load-bearing**: it swaps the spring for `easeInOut` under Reduce Motion.
+- `ToastView` — per-toast orchestrator: measurement-driven width/wrap state,
+  glass surface, drag/tap/press gestures, accessibility.
+- `ToastContentView` — the row (leading slot / text column / action button) +
+  `AvatarSlot`/`AvatarView`/`CircularProgressView`.
+- `ToastMeasurement.swift` — the two hidden off-screen probes (wrap decision +
+  hugging width) behind an Equatable inputs struct; they only emit
+  preferences, `ToastView` owns the handlers.
+- `ToastMetrics.swift` — every shared layout constant + the springs. The
+  probes must mirror the live layout's insets exactly; routing all values
+  through here makes that lockstep structural. Change layout numbers HERE.
+- `ToastImageDecoder.swift` — off-main image decode (+ downsampling of large
+  sources). `ToastModel.expectsImage` reserves the avatar slot from the first
+  frame so pixels landing later never shift the layout.
+- `IconView` / `GlassBackground` / `ActionButton` — leaf views.
+  `GlassBackground` picks real `glassEffect` (iOS 26+) vs `.ultraThinMaterial`
+  (iOS 17–25) vs opaque (Reduce Transparency); those `#available` blocks are
+  compile-time API gates — `Capabilities.swift` centralizes only the
+  value-level checks (wire strings).
+- `Models.swift` — `ToastModel` and friends (all `Equatable`; the image
+  compares by identity via `ToastImage`); mirrors the Dart wire format.
+- `WireDecoding.swift` — `[String: Any]` decode helpers (NSNumber-aware).
 - `DynamicIslandGeometry.swift` — device geometry snapshot for `queryGeometry`.
 - `Haptics.swift` — maps the toast's haptic enum to `UINotificationFeedbackGenerator`.
 
@@ -117,9 +146,10 @@ When changing anything that crosses the channel, keep both sides in lockstep:
   `dismissAll`/`appBackgrounded`; events `shown`/`actionTapped`/`tapped`/
   `dismissed`). `ToastEvent.fromMap` and `reasonFromWire` map them on the Dart side.
 - **Ids are minted in Dart** (`ids.dart`): `lt_<sessionPrefix>_<counter>`. The
-  `sessionPrefix` is random per isolate and sent in `handshake`; native uses it
-  to `flushAll` stale toasts after a **hot restart** (the old Dart event sink is
-  dead, so those toasts must be dropped silently).
+  `sessionPrefix` is random per isolate and sent in `handshake` (reserved wire
+  data — native does not compare it). Native `flushAll`s **unconditionally on
+  every handshake**, which is what clears stale toasts after a **hot restart**
+  (the old Dart event sink is dead, so those toasts must be dropped silently).
 - Command acks are maps: `show`→`{accepted}`, `update`→`{applied}`,
   `dismiss`→`{dismissed}`, `dismissAll`→`{dismissedIds}`. A `false`/missing ack is
   an expected race (toast already gone) — the facade reconciles by locally
@@ -150,6 +180,13 @@ misuse throws `ArgumentError` at the call site.
 - `test/toaster_test.dart` covers the new API; `test/legacy_facade_test.dart`
   is per-member smoke coverage of the deprecated facade (keep it green until
   the 1.0 removal).
+- Native behaviors that unit tests can't reach have scripted simulator probes
+  in `example/lib/`: `bg_probe_demo.dart` (wall-clock deadlines across
+  backgrounding + hot-restart flush; drive it with `simctl` foreground/
+  background cycles and read the `BGPROBE:` markers) and
+  `render_probe_demo.dart` (render isolation; add a temporary NSLog to
+  `ToastView.body` and count bodies per patch — expect ~1, not one per
+  visible toast).
 
 ## Demo / showcase videos
 

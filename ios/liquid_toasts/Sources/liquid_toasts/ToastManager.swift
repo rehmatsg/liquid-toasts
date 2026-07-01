@@ -43,6 +43,10 @@ final class ToastManager: ObservableObject {
 
   private let scheduler = DeadlineScheduler()
 
+  /// Guards stale async image decodes: each present/update with bytes bumps
+  /// the toast's generation, and a decode only attaches if it still matches.
+  private var imageGeneration: [String: Int] = [:]
+
   private var stackSpring: Animation { ToastMetrics.stackSpring }
 
   init() {
@@ -55,19 +59,26 @@ final class ToastManager: ObservableObject {
 
   // MARK: - Present / update / dismiss
 
-  func present(_ model: ToastModel) {
+  func present(_ model: ToastModel, imageData: Data? = nil) {
     // Replace-by-groupKey: morph an existing toast instead of stacking a dup.
     if let key = model.groupKey,
        let index = toasts.firstIndex(where: { $0.groupKey == key }) {
       let oldId = toasts[index].id
       scheduler.disarm(id: oldId)
       frames[oldId] = nil
+      imageGeneration[oldId] = nil
+      var incoming = model
+      if imageData != nil, let preserved = toasts[index].image {
+        // Keep the old avatar up until the fresh decode lands (no blank flash).
+        incoming.image = preserved
+      }
       stackGeneration += 1
-      withAnimation(stackSpring) { toasts[index] = model }
+      withAnimation(stackSpring) { toasts[index] = incoming }
       emitDismissed(oldId, reason: "replaced")
       scheduler.arm(id: model.id, duration: model.autoDuration)
       fireHaptic(model)
       emitShown(model)
+      decodeImageIfNeeded(id: model.id, data: imageData)
       return
     }
 
@@ -79,15 +90,21 @@ final class ToastManager: ObservableObject {
     scheduler.arm(id: model.id, duration: model.autoDuration)
     fireHaptic(model)
     emitShown(model)
+    decodeImageIfNeeded(id: model.id, data: imageData)
   }
 
   @discardableResult
-  func update(id: String, with toast: ToastModel) -> Bool {
+  func update(id: String, with toast: ToastModel, imageData: Data? = nil) -> Bool {
     guard let index = toasts.firstIndex(where: { $0.id == id }) else { return false }
     var updated = toasts[index]
+    let preserved = updated.image
     // applyContent also clears isActionBusy — a morph supersedes any in-flight
     // action spinner.
     updated.applyContent(from: toast)
+    if imageData != nil {
+      // Keep the old avatar up until the fresh decode lands (no blank flash).
+      updated.image = preserved
+    }
     // Morph in place — the list keeps every toast visible, so there is no need
     // to reorder a resolving toast. The id is unchanged, so stackGeneration
     // stays put and only this row re-renders.
@@ -96,6 +113,7 @@ final class ToastManager: ObservableObject {
     }
     scheduler.arm(id: id, duration: updated.autoDuration)
     fireHaptic(updated)
+    decodeImageIfNeeded(id: id, data: imageData)
     return true
   }
 
@@ -113,6 +131,7 @@ final class ToastManager: ObservableObject {
   /// Hot-restart flush: drop everything silently (the old Dart sink is dead).
   func flushAll() {
     scheduler.removeAll()
+    imageGeneration.removeAll()
     stackGeneration += 1
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
@@ -179,11 +198,45 @@ final class ToastManager: ObservableObject {
   private func teardown(id: String, reason: String) -> Bool {
     guard let index = toasts.firstIndex(where: { $0.id == id }) else { return false }
     scheduler.disarm(id: id)
+    imageGeneration[id] = nil
     stackGeneration += 1
     withAnimation(stackSpring) { _ = toasts.remove(at: index) }
     frames[id] = nil
     emitDismissed(id, reason: reason)
     return true
+  }
+
+  // MARK: - Async image decode
+
+  /// Decodes image bytes off the main thread and attaches the pixels to the
+  /// (still-live, still-current) toast. The reserved slot (`expectsImage`)
+  /// keeps the layout stable while this runs; on decode failure the slot is
+  /// collapsed instead of leaving a permanent gap.
+  private func decodeImageIfNeeded(id: String, data: Data?) {
+    guard let data else { return }
+    let generation = (imageGeneration[id] ?? 0) + 1
+    imageGeneration[id] = generation
+    Task.detached(priority: .userInitiated) {
+      let image = await ToastImageDecoder.decode(data)
+      await MainActor.run { [weak self] in
+        self?.attachImage(id: id, generation: generation, image: image)
+      }
+    }
+  }
+
+  private func attachImage(id: String, generation: Int, image: UIImage?) {
+    guard imageGeneration[id] == generation,
+          let index = toasts.firstIndex(where: { $0.id == id }) else { return }
+    if let image {
+      // Plain assignment: the id set is unchanged (stackGeneration untouched),
+      // so no container animation fires — the pixels just appear in the
+      // already-reserved slot.
+      toasts[index].image = ToastImage(uiImage: image)
+    } else {
+      // Undecodable bytes: collapse the reserved slot. The width probe reacts
+      // and the row animates to its narrower layout via the usual width morph.
+      toasts[index].expectsImage = false
+    }
   }
 
   /// Keeps at most `maxVisible` toasts per position, dismissing the oldest

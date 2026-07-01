@@ -35,6 +35,15 @@ rewrite. The old `LiquidToasts` facade keeps working as deprecated delegates
   `loadingOnPress` completion, even when the same `ToastAction` instance is
   reused; toasts without a leading image no longer touch the image pipeline
   on the show path.
+* **iOS performance** (internal; no wire changes, visuals verified
+  frame-identical against pre-refactor recordings) — rendering is isolated
+  per toast: updating one toast no longer re-renders every visible toast, and
+  dragging or animating no longer invalidates the whole overlay on every
+  frame (hit-test frames and auto-dismiss timer state no longer publish
+  through SwiftUI). Leading images are decoded — and large sources
+  downsampled — off the main thread instead of synchronously inside the
+  platform-channel call, with the avatar slot reserved up front so nothing
+  shifts when the pixels land.
 
 ## 0.2.0
 

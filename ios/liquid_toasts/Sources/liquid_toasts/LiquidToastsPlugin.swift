@@ -57,7 +57,7 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         result(FlutterError(code: "INVALID_ARGS", message: "show: missing id/message", details: nil))
         return
       }
-      manager.present(model)
+      manager.present(model, imageData: (args?["image"] as? FlutterStandardTypedData)?.data)
       result([
         "id": model.id,
         "accepted": true,
@@ -72,7 +72,9 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         result(FlutterError(code: "INVALID_ARGS", message: "update: missing id/message", details: nil))
         return
       }
-      let applied = manager.update(id: id, with: model)
+      let applied = manager.update(
+        id: id, with: model,
+        imageData: (args?["image"] as? FlutterStandardTypedData)?.data)
       var res: [String: Any] = ["id": id, "applied": applied]
       if !applied { res["reason"] = "unknown_id" }
       result(res)

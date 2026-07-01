@@ -176,7 +176,15 @@ struct ToastModel: Identifiable, Equatable {
   var message: String
   var title: String?
   var icon: String?
+
+  /// The decoded leading image. Arrives asynchronously (decode happens off the
+  /// main thread) — nil until then, and stays nil for toasts without one.
   var image: ToastImage?
+
+  /// True when the wire payload carried image bytes. Reserves the avatar slot
+  /// from the first frame so the layout doesn't jump when the decoded pixels
+  /// land; the manager clears it if the decode fails (the slot then collapses).
+  var expectsImage: Bool
   var semantic: ToastSemantic
   var style: ToastStyleModel?
   var position: ToastPositionModel
@@ -208,9 +216,9 @@ struct ToastModel: Identifiable, Equatable {
     self.message = message
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String
-    if let typed = map["image"] as? FlutterStandardTypedData {
-      self.image = UIImage(data: typed.data).map(ToastImage.init)
-    }
+    // Image bytes are NOT decoded here — the manager decodes them off the main
+    // thread and attaches the pixels when ready (see ToastImageDecoder).
+    self.expectsImage = map["image"] is FlutterStandardTypedData
     self.semantic = map.enumValue("semantic", default: .none)
     self.style = ToastStyleModel(map["style"])
     self.position = map.enumValue("position", default: .topCenter)
@@ -237,6 +245,7 @@ struct ToastModel: Identifiable, Equatable {
     title = other.title
     icon = other.icon
     image = other.image
+    expectsImage = other.expectsImage
     semantic = other.semantic
     style = other.style
     position = other.position
@@ -274,7 +283,11 @@ struct ToastModel: Identifiable, Equatable {
   var showsCircularProgress: Bool { progress != nil && progressStyle == .circular }
 
   /// Whether anything occupies the leading slot (image / ring / spinner / icon).
-  var showsLeadingSlot: Bool { image != nil || showsCircularProgress || showsIcon }
+  /// Keys off [expectsImage] (not just decoded pixels) so the slot is stable
+  /// from the first frame while the async decode runs.
+  var showsLeadingSlot: Bool {
+    expectsImage || image != nil || showsCircularProgress || showsIcon
+  }
 
   /// Auto-dismiss interval, or nil when persistent / loading.
   var autoDuration: TimeInterval? {

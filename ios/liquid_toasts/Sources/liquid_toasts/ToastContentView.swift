@@ -34,8 +34,8 @@ struct ToastContentView: View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
     HStack(alignment: .center, spacing: ToastMetrics.rowSpacing(multiline: isMultiline)) {
-      if let image = toast.image {
-        AvatarView(image: image.uiImage)
+      if toast.expectsImage || toast.image != nil {
+        AvatarSlot(image: toast.image?.uiImage)
       } else if toast.showsCircularProgress {
         CircularProgressView(value: toast.progress ?? 0, tint: accentTint)
       } else if toast.showsIcon {
@@ -114,6 +114,22 @@ struct CircularProgressView: View {
 }
 
 // MARK: - Avatar
+
+/// Reserves the avatar footprint from the first frame; the pixels land
+/// whenever the off-main decode finishes (usually within the entrance), so
+/// the row never shifts.
+struct AvatarSlot: View {
+  let image: UIImage?
+
+  var body: some View {
+    if let image {
+      AvatarView(image: image)
+    } else {
+      Color.clear
+        .frame(width: ToastMetrics.avatarSize, height: ToastMetrics.avatarSize)
+    }
+  }
+}
 
 /// A circular avatar / thumbnail in the leading slot — a raster image passed
 /// from Dart (any `ImageProvider`, resolved to bytes), in place of the SF Symbol.

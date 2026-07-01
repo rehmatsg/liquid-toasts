@@ -262,6 +262,20 @@ struct ToastModel: Identifiable, Equatable {
     return semantic.defaultSymbol
   }
 
+  // MARK: Leading-slot flags (single source for the content row AND the
+  // measurement probes, so their layouts can't disagree)
+
+  /// Whether a leading glyph (spinner or SF Symbol) renders. When false the
+  /// icon is dropped from the row entirely — slot and spacing — so a text-only
+  /// toast hugs its leading padding instead of reserving an empty icon box.
+  var showsIcon: Bool { state == .loading || resolvedSymbol != nil }
+
+  /// A determinate circular progress ring renders in place of the leading icon.
+  var showsCircularProgress: Bool { progress != nil && progressStyle == .circular }
+
+  /// Whether anything occupies the leading slot (image / ring / spinner / icon).
+  var showsLeadingSlot: Bool { image != nil || showsCircularProgress || showsIcon }
+
   /// Auto-dismiss interval, or nil when persistent / loading.
   var autoDuration: TimeInterval? {
     if persistent || state == .loading { return nil }

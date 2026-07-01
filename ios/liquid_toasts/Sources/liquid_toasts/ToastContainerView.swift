@@ -51,7 +51,7 @@ struct ToastContainerView: View {
         positionedList(position: group.position, toasts: group.toasts)
       }
     }
-    .animation(motion, value: manager.toasts.map(\.id))
+    .animation(motion, value: manager.stackGeneration)
     .onPreferenceChange(ToastFramePreferenceKey.self) { frames in
       manager.frames = frames
     }
@@ -70,7 +70,6 @@ struct ToastContainerView: View {
           ToastView(
             toast: toast,
             deviceWidth: hostWidth,
-            isActionLoading: manager.busyActionIds.contains(toast.id),
             onTapBody: { manager.handleBodyTap(id: toast.id) },
             onAction: { manager.handleAction(id: toast.id) },
             onSwipe: { manager.handleSwipe(id: toast.id) },

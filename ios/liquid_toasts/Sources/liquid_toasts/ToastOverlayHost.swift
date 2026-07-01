@@ -80,8 +80,11 @@ final class ToastOverlayHost {
   }
 
   /// Recomputes device geometry (top safe-area inset) onto the manager.
+  /// Writes only on change — `topSafeArea` is @Published and this fires on
+  /// every scene activation.
   func refreshGeometry() {
-    manager.topSafeArea = Self.activeWindow()?.safeAreaInsets.top ?? 0
+    let top = Self.activeWindow()?.safeAreaInsets.top ?? 0
+    if manager.topSafeArea != top { manager.topSafeArea = top }
   }
 
   /// Keeps the overlay frontmost if the app later adds sibling views.

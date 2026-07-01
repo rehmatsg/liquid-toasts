@@ -185,8 +185,10 @@ struct ToastModel: Identifiable {
   var hasTap: Bool
   var action: ToastActionModel?
 
-  // Runtime-only
-  var deadline: Date?
+  /// Runtime-only, never decoded from the wire: true while the action's async
+  /// `onPressed` runs — the button shows a spinner. Lives on the model (like
+  /// `progress`) so flipping it re-renders only the affected row.
+  var isActionBusy = false
 
   init?(arguments: Any?) {
     guard let map = arguments as? [String: Any],
@@ -240,6 +242,8 @@ struct ToastModel: Identifiable {
     tapToDismiss = other.tapToDismiss
     hasTap = other.hasTap
     action = other.action
+    // A morph supersedes any in-flight action spinner.
+    isActionBusy = false
   }
 
   /// The SF Symbol to render: explicit icon wins, else the semantic default.

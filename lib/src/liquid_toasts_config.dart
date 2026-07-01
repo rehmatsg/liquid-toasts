@@ -15,7 +15,7 @@ enum ToastDropPolicy { dropOldest, dropNewest }
 class LiquidToastsConfig {
   const LiquidToastsConfig({
     this.defaultPosition = ToastPosition.topCenter,
-    this.defaultDuration = const Duration(seconds: 3),
+    this.defaultDuration,
     this.defaultGlass = ToastGlass.adaptive,
     this.maxVisible = 5,
     this.maxQueue = 8,
@@ -23,7 +23,11 @@ class LiquidToastsConfig {
   });
 
   final ToastPosition defaultPosition;
-  final Duration defaultDuration;
+
+  /// Auto-dismiss duration applied when a call site omits `duration`. Null (the
+  /// default) means "use the per-semantic defaults" (success/info/warning 3s,
+  /// error 4s); a non-null value overrides them all uniformly.
+  final Duration? defaultDuration;
   final ToastGlass defaultGlass;
 
   /// Max toasts shown per position (a vertical list). When a new toast would

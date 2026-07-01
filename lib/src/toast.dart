@@ -4,6 +4,7 @@ import 'dart:ui' show VoidCallback;
 import 'package:flutter/painting.dart' show ImageProvider;
 import 'package:meta/meta.dart';
 
+import 'semantic_defaults.dart';
 import 'toast_action.dart';
 import 'toast_position.dart';
 import 'toast_style.dart';
@@ -16,15 +17,17 @@ import 'toast_style.dart';
 /// [Toast.loading]) for ergonomics, or the default constructor for full control.
 @immutable
 class Toast {
-  const Toast({
+  /// Canonical constructor — every other constructor funnels through this so
+  /// the field list exists in exactly one place.
+  const Toast._raw({
     required this.message,
     this.title,
     this.icon,
     this.leadingImage,
     this.semantic = ToastSemantic.none,
     this.style,
-    this.position = ToastPosition.topCenter,
-    this.duration = const Duration(seconds: 3),
+    this.position,
+    this.duration,
     this.action,
     this.useDynamicIslandOrigin = true,
     this.onTap,
@@ -36,39 +39,61 @@ class Toast {
     this.semanticsLabel,
     this.maxLines = 1,
     this.titleMaxLines = 1,
-  }) : loading = false;
+    required this.loading,
+  });
 
-  const Toast._loading({
-    required this.message,
-    this.title,
-    this.icon,
-    this.style,
-    this.position = ToastPosition.topCenter,
-    this.useDynamicIslandOrigin = true,
-    this.groupKey,
-    this.progress,
-    this.progressStyle = ToastProgressStyle.linear,
-    this.semanticsLabel,
-    this.maxLines = 1,
-    this.titleMaxLines = 1,
-  })  : semantic = ToastSemantic.none,
-        leadingImage = null,
-        duration = null,
-        action = null,
-        onTap = null,
-        tapToDismiss = false,
-        haptic = null,
-        loading = true;
+  const Toast({
+    required String message,
+    String? title,
+    String? icon,
+    ImageProvider? leadingImage,
+    ToastSemantic semantic = ToastSemantic.none,
+    ToastStyleOverride? style,
+    ToastPosition? position,
+    Duration? duration = const Duration(seconds: 3),
+    ToastAction? action,
+    bool useDynamicIslandOrigin = true,
+    VoidCallback? onTap,
+    bool tapToDismiss = true,
+    String? groupKey,
+    double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
+    ToastHaptic? haptic,
+    String? semanticsLabel,
+    int maxLines = 1,
+    int titleMaxLines = 1,
+  }) : this._raw(
+          message: message,
+          title: title,
+          icon: icon,
+          leadingImage: leadingImage,
+          semantic: semantic,
+          style: style,
+          position: position,
+          duration: duration,
+          action: action,
+          useDynamicIslandOrigin: useDynamicIslandOrigin,
+          onTap: onTap,
+          tapToDismiss: tapToDismiss,
+          groupKey: groupKey,
+          progress: progress,
+          progressStyle: progressStyle,
+          haptic: haptic,
+          semanticsLabel: semanticsLabel,
+          maxLines: maxLines,
+          titleMaxLines: titleMaxLines,
+          loading: false,
+        );
 
   /// A persistent spinner toast. Typically created for you by
   /// [LiquidToasts.showLoading], but also usable directly for a manual
   /// loading state you later [ToastHandle.update] or [ToastHandle.dismiss].
-  factory Toast.loading({
+  const Toast.loading({
     required String message,
     String? title,
     String? icon,
     ToastStyleOverride? style,
-    ToastPosition position = ToastPosition.topCenter,
+    ToastPosition? position,
     bool useDynamicIslandOrigin = true,
     String? groupKey,
     double? progress,
@@ -76,43 +101,96 @@ class Toast {
     String? semanticsLabel,
     int maxLines = 1,
     int titleMaxLines = 1,
+  }) : this._raw(
+          message: message,
+          title: title,
+          icon: icon,
+          style: style,
+          position: position,
+          useDynamicIslandOrigin: useDynamicIslandOrigin,
+          groupKey: groupKey,
+          progress: progress,
+          progressStyle: progressStyle,
+          semanticsLabel: semanticsLabel,
+          maxLines: maxLines,
+          titleMaxLines: titleMaxLines,
+          tapToDismiss: false,
+          loading: true,
+        );
+
+  /// Shared body of the semantic factories: the ONLY place a semantic
+  /// convenience [Toast] is assembled. Per-semantic defaults come from
+  /// [SemanticDefaults].
+  factory Toast._semantic(
+    ToastSemantic semantic, {
+    required String message,
+    required String? title,
+    required String? icon,
+    required ImageProvider? leadingImage,
+    required ToastStyleOverride? style,
+    required ToastPosition? position,
+    required Duration? duration,
+    required ToastAction? action,
+    required VoidCallback? onTap,
+    required bool tapToDismiss,
+    required bool useDynamicIslandOrigin,
+    required String? groupKey,
+    required double? progress,
+    required ToastProgressStyle progressStyle,
+    required ToastHaptic? haptic,
+    required String? semanticsLabel,
+    required int? maxLines,
+    required int titleMaxLines,
   }) =>
-      Toast._loading(
+      Toast._raw(
         message: message,
         title: title,
         icon: icon,
+        leadingImage: leadingImage,
+        semantic: semantic,
         style: style,
         position: position,
+        duration: duration,
+        action: action,
+        onTap: onTap,
+        tapToDismiss: tapToDismiss,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
         progress: progress,
         progressStyle: progressStyle,
+        haptic: haptic,
         semanticsLabel: semanticsLabel,
-        maxLines: maxLines,
+        maxLines: maxLines ?? SemanticDefaults.maxLinesFor(semantic),
         titleMaxLines: titleMaxLines,
+        loading: false,
       );
 
   factory Toast.success({
     required String message,
     String? title,
     String? icon,
+    ImageProvider? leadingImage,
     ToastStyleOverride? style,
-    ToastPosition position = ToastPosition.topCenter,
-    Duration? duration = const Duration(seconds: 3),
+    ToastPosition? position,
+    Duration? duration = SemanticDefaults.successDuration,
     ToastAction? action,
     VoidCallback? onTap,
     bool tapToDismiss = true,
     bool useDynamicIslandOrigin = true,
     String? groupKey,
+    double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     ToastHaptic? haptic,
     String? semanticsLabel,
-    int maxLines = 1,
+    int? maxLines,
+    int titleMaxLines = 1,
   }) =>
-      Toast(
+      Toast._semantic(
+        ToastSemantic.success,
         message: message,
         title: title,
         icon: icon,
-        semantic: ToastSemantic.success,
+        leadingImage: leadingImage,
         style: style,
         position: position,
         duration: duration,
@@ -121,32 +199,40 @@ class Toast {
         tapToDismiss: tapToDismiss,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
+        progress: progress,
+        progressStyle: progressStyle,
         haptic: haptic,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
       );
 
   factory Toast.error({
     required String message,
     String? title,
     String? icon,
+    ImageProvider? leadingImage,
     ToastStyleOverride? style,
-    ToastPosition position = ToastPosition.topCenter,
-    Duration? duration = const Duration(seconds: 4),
+    ToastPosition? position,
+    Duration? duration = SemanticDefaults.errorDuration,
     ToastAction? action,
     VoidCallback? onTap,
     bool tapToDismiss = true,
     bool useDynamicIslandOrigin = true,
     String? groupKey,
+    double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     ToastHaptic? haptic,
     String? semanticsLabel,
-    int maxLines = 2,
+    int? maxLines,
+    int titleMaxLines = 1,
   }) =>
-      Toast(
+      Toast._semantic(
+        ToastSemantic.error,
         message: message,
         title: title,
         icon: icon,
-        semantic: ToastSemantic.error,
+        leadingImage: leadingImage,
         style: style,
         position: position,
         duration: duration,
@@ -155,32 +241,40 @@ class Toast {
         tapToDismiss: tapToDismiss,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
+        progress: progress,
+        progressStyle: progressStyle,
         haptic: haptic,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
       );
 
   factory Toast.warning({
     required String message,
     String? title,
     String? icon,
+    ImageProvider? leadingImage,
     ToastStyleOverride? style,
-    ToastPosition position = ToastPosition.topCenter,
-    Duration? duration = const Duration(seconds: 3),
+    ToastPosition? position,
+    Duration? duration = SemanticDefaults.warningDuration,
     ToastAction? action,
     VoidCallback? onTap,
     bool tapToDismiss = true,
     bool useDynamicIslandOrigin = true,
     String? groupKey,
+    double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     ToastHaptic? haptic,
     String? semanticsLabel,
-    int maxLines = 2,
+    int? maxLines,
+    int titleMaxLines = 1,
   }) =>
-      Toast(
+      Toast._semantic(
+        ToastSemantic.warning,
         message: message,
         title: title,
         icon: icon,
-        semantic: ToastSemantic.warning,
+        leadingImage: leadingImage,
         style: style,
         position: position,
         duration: duration,
@@ -189,32 +283,40 @@ class Toast {
         tapToDismiss: tapToDismiss,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
+        progress: progress,
+        progressStyle: progressStyle,
         haptic: haptic,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
       );
 
   factory Toast.info({
     required String message,
     String? title,
     String? icon,
+    ImageProvider? leadingImage,
     ToastStyleOverride? style,
-    ToastPosition position = ToastPosition.topCenter,
-    Duration? duration = const Duration(seconds: 3),
+    ToastPosition? position,
+    Duration? duration = SemanticDefaults.infoDuration,
     ToastAction? action,
     VoidCallback? onTap,
     bool tapToDismiss = true,
     bool useDynamicIslandOrigin = true,
     String? groupKey,
+    double? progress,
+    ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     ToastHaptic? haptic,
     String? semanticsLabel,
-    int maxLines = 1,
+    int? maxLines,
+    int titleMaxLines = 1,
   }) =>
-      Toast(
+      Toast._semantic(
+        ToastSemantic.info,
         message: message,
         title: title,
         icon: icon,
-        semantic: ToastSemantic.info,
+        leadingImage: leadingImage,
         style: style,
         position: position,
         duration: duration,
@@ -223,9 +325,12 @@ class Toast {
         tapToDismiss: tapToDismiss,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
         groupKey: groupKey,
+        progress: progress,
+        progressStyle: progressStyle,
         haptic: haptic,
         semanticsLabel: semanticsLabel,
         maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
       );
 
   /// Primary line. Truncated to [maxLines] natively.
@@ -247,7 +352,10 @@ class Toast {
 
   final ToastSemantic semantic;
   final ToastStyleOverride? style;
-  final ToastPosition position;
+
+  /// Where the toast anchors. `null` ⇒ the app-wide default
+  /// ([LiquidToastsConfig.defaultPosition]), resolved at show time.
+  final ToastPosition? position;
 
   /// `null` or [Duration.zero] ⇒ persistent (requires explicit dismissal).
   final Duration? duration;
@@ -295,21 +403,55 @@ class Toast {
   bool get isPersistent =>
       loading || duration == null || duration == Duration.zero;
 
-  ToastHaptic get _effectiveHaptic {
-    if (haptic != null) return haptic!;
-    if (loading) return ToastHaptic.none;
-    switch (semantic) {
-      case ToastSemantic.success:
-        return ToastHaptic.success;
-      case ToastSemantic.error:
-        return ToastHaptic.error;
-      case ToastSemantic.warning:
-        return ToastHaptic.warning;
-      case ToastSemantic.info:
-      case ToastSemantic.none:
-        return ToastHaptic.none;
-    }
-  }
+  /// A copy with the given fields replaced. Null means "keep the current
+  /// value" — to *clear* a nullable field (title, action, progress, …), build a
+  /// fresh [Toast] instead (e.g. via [ToastHandle.replace]). To make a copy
+  /// persistent, pass `duration: Duration.zero`.
+  Toast copyWith({
+    String? message,
+    String? title,
+    String? icon,
+    ImageProvider? leadingImage,
+    ToastSemantic? semantic,
+    ToastStyleOverride? style,
+    ToastPosition? position,
+    Duration? duration,
+    ToastAction? action,
+    bool? useDynamicIslandOrigin,
+    VoidCallback? onTap,
+    bool? tapToDismiss,
+    String? groupKey,
+    double? progress,
+    ToastProgressStyle? progressStyle,
+    ToastHaptic? haptic,
+    String? semanticsLabel,
+    int? maxLines,
+    int? titleMaxLines,
+    bool? loading,
+  }) =>
+      Toast._raw(
+        message: message ?? this.message,
+        title: title ?? this.title,
+        icon: icon ?? this.icon,
+        leadingImage: leadingImage ?? this.leadingImage,
+        semantic: semantic ?? this.semantic,
+        style: style ?? this.style,
+        position: position ?? this.position,
+        duration: duration ?? this.duration,
+        action: action ?? this.action,
+        useDynamicIslandOrigin:
+            useDynamicIslandOrigin ?? this.useDynamicIslandOrigin,
+        onTap: onTap ?? this.onTap,
+        tapToDismiss: tapToDismiss ?? this.tapToDismiss,
+        groupKey: groupKey ?? this.groupKey,
+        progress: progress ?? this.progress,
+        progressStyle: progressStyle ?? this.progressStyle,
+        haptic: haptic ?? this.haptic,
+        semanticsLabel: semanticsLabel ?? this.semanticsLabel,
+        maxLines: maxLines ?? this.maxLines,
+        titleMaxLines: titleMaxLines ?? this.titleMaxLines,
+        loading: loading ?? this.loading,
+      );
 
   /// Wire format. [actionId] is the id minted for [action] (omit when there is
   /// no action). Colors serialize as `{light,dark}` maps; durations as ms.
@@ -320,7 +462,7 @@ class Toast {
         'image': ?imageBytes,
         'semantic': semantic.name,
         if (style != null) 'style': style!.toMap(),
-        'position': position.name,
+        'position': (position ?? ToastPosition.topCenter).name,
         'state': loading ? 'loading' : 'static',
         'persistent': isPersistent,
         if (!isPersistent) 'durationMs': duration!.inMilliseconds,
@@ -328,7 +470,9 @@ class Toast {
         if (progress != null) 'progress': progress,
         if (progress != null) 'progressStyle': progressStyle.name,
         if (groupKey != null) 'groupKey': groupKey,
-        'haptic': _effectiveHaptic.name,
+        'haptic':
+            (haptic ?? SemanticDefaults.hapticFor(semantic, loading: loading))
+                .name,
         if (semanticsLabel != null) 'semanticsLabel': semanticsLabel,
         'maxLines': maxLines,
         'titleMaxLines': titleMaxLines,

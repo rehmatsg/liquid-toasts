@@ -27,8 +27,8 @@ struct IconView: View {
           .transition(.scale.combined(with: .opacity))
       }
     }
-    .frame(width: 22, height: 22)
-    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: toast.state)
+    .frame(width: ToastMetrics.iconSlot, height: ToastMetrics.iconSlot)
+    .animation(ToastMetrics.settleSpring, value: toast.state)
   }
 
   @ViewBuilder

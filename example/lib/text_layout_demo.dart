@@ -31,7 +31,7 @@ const _body = 'Your entire photo library is now safely stored in iCloud.';
 
 // 1. Multiline title only, no icon/action → centered.
 Future<void> _titleOnly() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: _longTitle,
     message: '',
     titleMaxLines: 2,
@@ -42,7 +42,7 @@ Future<void> _titleOnly() async {
 
 // 2. Single-line title + multiline body, no icon → full-width, left-aligned.
 Future<void> _titleAndBody() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: 'Backup complete',
     message: _body,
     maxLines: 2,
@@ -53,7 +53,7 @@ Future<void> _titleAndBody() async {
 
 // 3a. Multiline title only + icon → left-aligned (leading glyph present).
 Future<void> _titleOnlyIcon() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: _longTitle,
     message: '',
     icon: 'checkmark.circle.fill',
@@ -66,7 +66,7 @@ Future<void> _titleOnlyIcon() async {
 
 // 3b. Single-line title + multiline body + icon → full-width, left-aligned.
 Future<void> _titleAndBodyIcon() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: 'Backup complete',
     message: _body,
     icon: 'icloud.fill',

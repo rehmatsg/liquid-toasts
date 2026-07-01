@@ -1,3 +1,50 @@
+## 0.3.0
+
+A new primary API — the global `toast` object — plus an internal engine
+rewrite. The old `LiquidToasts` facade keeps working as deprecated delegates
+(removal planned for 1.0).
+
+* **New `toast` API** — a callable, Sonner-style entry point whose `show`
+  methods return the `ToastHandle` **synchronously** (no `await`):
+  `toast('Hi')`, `toast.success('Saved')`, `toast.loading('Working…')`,
+  `toast.raw(Toast(...))`. If the name collides with your code,
+  `hide toast` and use `Toaster.instance`.
+* **`toast.promise`** — replaces `showLoading` + `LoadingToast`:
+  `toast.promise(future, loading: 'Signing in…', success: (u) => 'Hi ${u.name}',
+  error: 'Failed')`. Specs accept a `String`, a `Toast`, or a builder; invalid
+  specs throw `ArgumentError` at the call site. Still returns the future's
+  value / rethrows its error.
+* **Patch-style handle updates** — `handle.update(progress: 0.6)` changes only
+  what you pass; rapid patches compose in order. Full replacement moved to
+  `handle.replace(Toast)`.
+* **BREAKING** — `ToastHandle.update(Toast)` is now `ToastHandle.replace(Toast)`;
+  `ToastHandle.completer` is private; `Toast.position` and
+  `LiquidToastsConfig.defaultDuration` are nullable (null = app/semantic
+  default, resolved at show time).
+* **Behavior** — error toasts now default to 4 s everywhere (previously the
+  config default of 3 s applied via `LiquidToasts.error`); an explicit
+  `duration: null` on the new API means persistent instead of being silently
+  coerced to the config default; `toast.promise` success toasts show for the
+  semantic default (3 s) instead of `LoadingToast`'s 2 s.
+* **Deprecated** — every `LiquidToasts` member and `LoadingToast`, each with a
+  migration hint. They delegate to the same engine, so old and new call sites
+  can be mixed during migration.
+* **Fixes** — `dismissAll` can no longer orphan a native toast whose `show`
+  was still in flight (it is chased down and dismissed); an `update` that
+  swaps a toast's action now reliably supersedes an in-flight
+  `loadingOnPress` completion, even when the same `ToastAction` instance is
+  reused; toasts without a leading image no longer touch the image pipeline
+  on the show path.
+* **iOS performance** (internal; no wire changes, visuals verified
+  frame-identical against pre-refactor recordings) — rendering is isolated
+  per toast: updating one toast no longer re-renders every visible toast, and
+  dragging or animating no longer invalidates the whole overlay on every
+  frame (hit-test frames and auto-dismiss timer state no longer publish
+  through SwiftUI). Leading images are decoded — and large sources
+  downsampled — off the main thread instead of synchronously inside the
+  platform-channel call, with the avatar slot reserved up front so nothing
+  shifts when the pixels land.
+
 ## 0.2.0
 
 Richer toast content. No breaking changes — every addition is opt-in with a

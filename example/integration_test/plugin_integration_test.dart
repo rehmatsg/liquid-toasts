@@ -10,13 +10,13 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('queryGeometry returns a device snapshot', (tester) async {
-    final geometry = await LiquidToasts.queryGeometry();
+    final geometry = await toast.queryGeometry();
     expect(geometry, isNotEmpty);
     expect(geometry['glassMode'], isA<String>());
   });
 
   testWidgets('show then dismiss completes the handle', (tester) async {
-    final handle = await LiquidToasts.success('Integration test');
+    final handle = toast.success('Integration test');
     expect(handle.id, isNotEmpty);
     await handle.dismiss();
     final reason = await handle.onDismissed.timeout(

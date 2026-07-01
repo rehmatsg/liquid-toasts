@@ -1,26 +1,36 @@
 import SwiftUI
 import UIKit
 
-/// The single source of truth for the toast stack. Owns the queue, auto-dismiss
-/// timers (wall-clock so backgrounding can't corrupt them), replace-by-groupKey,
-/// auto-promote-on-resolve, and exactly-once teardown. Emits lifecycle events
-/// back to the plugin via [onEvent].
+/// The single source of truth for the toast stack. Owns the queue,
+/// replace-by-`groupKey`, per-position `maxVisible` enforcement, exactly-once
+/// teardown, and emits lifecycle events back to the plugin via [onEvent].
+/// Auto-dismiss timing (wall-clock deadlines, pause banking, backgrounding)
+/// lives in [DeadlineScheduler].
 @MainActor
 final class ToastManager: ObservableObject {
+  /// The one SwiftUI input: the stack itself. Everything the render tree needs
+  /// lives on the models — including runtime flags like
+  /// `ToastModel.isActionBusy` — so a change to one toast invalidates the
+  /// container once and per-row equality gating keeps the other rows cheap.
   @Published private(set) var toasts: [ToastModel] = []
 
-  /// Frames (window coordinates) of the interactive (front) toasts, fed by the
-  /// SwiftUI layer and read by the overlay host's hit-test for pass-through.
-  @Published var frames: [String: CGRect] = [:]
-
   /// Top safe-area inset (set by the overlay host from the window). Drives the
-  /// entrance slide distance.
+  /// entrance slide distance. The host writes it only on change.
   @Published var topSafeArea: CGFloat = 0
 
-  /// Ids whose action button is mid-async (`loadingOnPress`) — the button shows
-  /// a spinner. Cleared when the toast is torn down (the facade dismisses it
-  /// once `onPressed` resolves).
-  @Published var busyActionIds: Set<String> = []
+  /// Frames (window coordinates) of the interactive toasts, fed by the SwiftUI
+  /// layer and read ONLY imperatively by the overlay host's hit-test.
+  /// Deliberately **not** `@Published`: no SwiftUI view depends on it, and it
+  /// updates on every animation frame of a drag or stack spring — publishing
+  /// it would invalidate the whole container per frame.
+  var frames: [String: CGRect] = [:]
+
+  /// Bumped exactly when the set of toast ids changes (present / teardown /
+  /// flush) — the container's `.animation(value:)` token. Content morphs keep
+  /// the generation; they ride the mutation-site `withAnimation`. Plain (not
+  /// published) because it only ever changes in the same transaction as
+  /// `toasts`.
+  private(set) var stackGeneration = 0
 
   /// Max toasts shown per position (a vertical list); the oldest is dismissed
   /// when a new toast would exceed this.
@@ -30,68 +40,86 @@ final class ToastManager: ObservableObject {
 
   /// Emits a wire-ready event payload to the plugin's event sink.
   var onEvent: (([String: Any]) -> Void)?
-  /// Notified when the stack transitions between empty and non-empty.
-  var onEmptyChanged: ((Bool) -> Void)?
 
-  private var deadlineTasks: [String: Task<Void, Never>] = [:]
-  /// Banked remaining auto-dismiss time for toasts paused mid-interaction.
-  private var pausedRemaining: [String: TimeInterval] = [:]
-  private var backgrounded = false
-  private var wasEmpty = true
+  private let scheduler = DeadlineScheduler()
 
-  private var stackSpring: Animation { .spring(response: 0.42, dampingFraction: 0.82) }
+  /// Guards stale async image decodes: each present/update with bytes bumps
+  /// the toast's generation, and a decode only attaches if it still matches.
+  private var imageGeneration: [String: Int] = [:]
+
+  private var stackSpring: Animation { ToastMetrics.stackSpring }
+
+  init() {
+    // The existing teardown guard preserves exactly-once if a stale expiry
+    // races a manual dismissal.
+    scheduler.onExpire = { [weak self] id, reason in
+      self?.teardown(id: id, reason: reason)
+    }
+  }
 
   // MARK: - Present / update / dismiss
 
-  func present(_ toast: ToastModel) {
-    var model = toast
-
+  func present(_ model: ToastModel, imageData: Data? = nil) {
     // Replace-by-groupKey: morph an existing toast instead of stacking a dup.
     if let key = model.groupKey,
        let index = toasts.firstIndex(where: { $0.groupKey == key }) {
       let oldId = toasts[index].id
-      cancelDeadline(oldId)
+      scheduler.disarm(id: oldId)
       frames[oldId] = nil
-      withAnimation(stackSpring) { toasts[index] = model }
+      imageGeneration[oldId] = nil
+      var incoming = model
+      if imageData != nil, let preserved = toasts[index].image {
+        // Keep the old avatar up until the fresh decode lands (no blank flash).
+        incoming.image = preserved
+      }
+      stackGeneration += 1
+      withAnimation(stackSpring) { toasts[index] = incoming }
       emitDismissed(oldId, reason: "replaced")
-      arm(model)
+      scheduler.arm(id: model.id, duration: model.autoDuration)
       fireHaptic(model)
       emitShown(model)
+      decodeImageIfNeeded(id: model.id, data: imageData)
       return
     }
 
+    stackGeneration += 1
     withAnimation(stackSpring) {
       toasts.append(model)
     }
     enforcePositionLimit(model.position)
-    arm(model)
+    scheduler.arm(id: model.id, duration: model.autoDuration)
     fireHaptic(model)
     emitShown(model)
-    notifyEmpty()
+    decodeImageIfNeeded(id: model.id, data: imageData)
   }
 
   @discardableResult
-  func update(id: String, with toast: ToastModel) -> Bool {
+  func update(id: String, with toast: ToastModel, imageData: Data? = nil) -> Bool {
     guard let index = toasts.firstIndex(where: { $0.id == id }) else { return false }
     var updated = toasts[index]
+    let preserved = updated.image
+    // applyContent also clears isActionBusy — a morph supersedes any in-flight
+    // action spinner.
     updated.applyContent(from: toast)
-    cancelDeadline(id)
-    busyActionIds.remove(id) // a morph supersedes any in-flight action spinner
+    if imageData != nil {
+      // Keep the old avatar up until the fresh decode lands (no blank flash).
+      updated.image = preserved
+    }
     // Morph in place — the list keeps every toast visible, so there is no need
-    // to reorder a resolving toast.
+    // to reorder a resolving toast. The id is unchanged, so stackGeneration
+    // stays put and only this row re-renders.
     withAnimation(stackSpring) {
       toasts[index] = updated
     }
-    arm(updated)
+    scheduler.arm(id: id, duration: updated.autoDuration)
     fireHaptic(updated)
+    decodeImageIfNeeded(id: id, data: imageData)
     return true
   }
 
   @discardableResult
   func dismiss(id: String, reason: String) -> Bool {
-    guard toasts.contains(where: { $0.id == id }) else { return false }
     teardown(id: id, reason: reason)
-    return true
   }
 
   func dismissAll(reason: String) -> [String] {
@@ -102,28 +130,25 @@ final class ToastManager: ObservableObject {
 
   /// Hot-restart flush: drop everything silently (the old Dart sink is dead).
   func flushAll() {
-    for task in deadlineTasks.values { task.cancel() }
-    deadlineTasks.removeAll()
-    pausedRemaining.removeAll()
-    busyActionIds.removeAll()
+    scheduler.removeAll()
+    imageGeneration.removeAll()
+    stackGeneration += 1
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
-    notifyEmpty()
   }
 
   // MARK: - Interaction (called from the SwiftUI layer)
 
   func handleAction(id: String) {
-    guard let model = toasts.first(where: { $0.id == id }), let action = model.action else { return }
+    guard let index = toasts.firstIndex(where: { $0.id == id }),
+          let action = toasts[index].action else { return }
     emitAction(id: id, actionId: action.actionId)
     if action.loadingOnPress {
       // Async action: show the spinner and keep the toast up while the Dart
       // `onPressed` future runs; the facade dismisses it on completion. Disarm
       // auto-dismiss so the timer can't fire mid-task.
-      busyActionIds.insert(id)
-      cancelDeadline(id)
-      setDeadline(id, nil)
-      pausedRemaining[id] = nil
+      toasts[index].isActionBusy = true
+      scheduler.disarm(id: id)
       return
     }
     if action.dismissOnPress { teardown(id: id, reason: "action") }
@@ -139,72 +164,79 @@ final class ToastManager: ObservableObject {
     teardown(id: id, reason: "swipe")
   }
 
-  /// Pauses a toast's auto-dismiss while the user is touching it. The remaining
-  /// time is banked and the wall-clock deadline cleared so neither the timer nor
-  /// a background/foreground cycle can fire it mid-interaction. No-op for
+  /// Pauses a toast's auto-dismiss while the user is touching it. No-op for
   /// persistent / loading toasts (they have no deadline).
   func pauseAutoDismiss(id: String) {
-    guard let index = toasts.firstIndex(where: { $0.id == id }),
-          let deadline = toasts[index].deadline else { return }
-    let remaining = deadline.timeIntervalSinceNow
-    guard remaining > 0 else { return }
-    pausedRemaining[id] = remaining
-    cancelDeadline(id)
-    toasts[index].deadline = nil
+    guard toasts.contains(where: { $0.id == id }) else { return }
+    scheduler.pause(id: id)
   }
 
   /// Clears a `loadingOnPress` action's spinner and re-arms the toast's
   /// auto-dismiss without removing it — for an async action whose `onPressed`
   /// finished but `dismissOnPress` is false (the toast stays, button idle again).
   func finishAction(id: String) {
-    guard busyActionIds.contains(id) else { return }
-    busyActionIds.remove(id)
-    if let model = toasts.first(where: { $0.id == id }) { arm(model) }
+    guard let index = toasts.firstIndex(where: { $0.id == id }),
+          toasts[index].isActionBusy else { return }
+    toasts[index].isActionBusy = false
+    scheduler.arm(id: id, duration: toasts[index].autoDuration)
   }
 
   /// Resumes a paused toast's auto-dismiss with its banked remaining time.
-  /// No-op if the toast was never paused or has since gone away.
   func resumeAutoDismiss(id: String) {
-    guard let remaining = pausedRemaining.removeValue(forKey: id),
-          toasts.contains(where: { $0.id == id }) else { return }
-    let deadline = Date().addingTimeInterval(remaining)
-    setDeadline(id, deadline)
-    if !backgrounded { scheduleTask(for: id, fireAt: deadline) }
+    guard toasts.contains(where: { $0.id == id }) else { return }
+    scheduler.resume(id: id)
   }
 
   // MARK: - App lifecycle
 
-  func appDidEnterBackground() {
-    backgrounded = true
-    for task in deadlineTasks.values { task.cancel() }
-    deadlineTasks.removeAll()
-    // Deadlines remain stored on the models (wall-clock).
+  func appDidEnterBackground() { scheduler.appDidEnterBackground() }
+  func appWillEnterForeground() { scheduler.appWillEnterForeground() }
+
+  // MARK: - Teardown (exactly once)
+
+  @discardableResult
+  private func teardown(id: String, reason: String) -> Bool {
+    guard let index = toasts.firstIndex(where: { $0.id == id }) else { return false }
+    scheduler.disarm(id: id)
+    imageGeneration[id] = nil
+    stackGeneration += 1
+    withAnimation(stackSpring) { _ = toasts.remove(at: index) }
+    frames[id] = nil
+    emitDismissed(id, reason: reason)
+    return true
   }
 
-  func appWillEnterForeground() {
-    backgrounded = false
-    let now = Date()
-    for model in toasts {
-      guard let deadline = model.deadline else { continue }
-      if deadline <= now {
-        teardown(id: model.id, reason: "appBackgrounded")
-      } else {
-        scheduleTask(for: model.id, fireAt: deadline)
+  // MARK: - Async image decode
+
+  /// Decodes image bytes off the main thread and attaches the pixels to the
+  /// (still-live, still-current) toast. The reserved slot (`expectsImage`)
+  /// keeps the layout stable while this runs; on decode failure the slot is
+  /// collapsed instead of leaving a permanent gap.
+  private func decodeImageIfNeeded(id: String, data: Data?) {
+    guard let data else { return }
+    let generation = (imageGeneration[id] ?? 0) + 1
+    imageGeneration[id] = generation
+    Task.detached(priority: .userInitiated) {
+      let image = await ToastImageDecoder.decode(data)
+      await MainActor.run { [weak self] in
+        self?.attachImage(id: id, generation: generation, image: image)
       }
     }
   }
 
-  // MARK: - Teardown (exactly once)
-
-  private func teardown(id: String, reason: String) {
-    guard toasts.contains(where: { $0.id == id }) else { return }
-    cancelDeadline(id)
-    pausedRemaining[id] = nil
-    busyActionIds.remove(id)
-    withAnimation(stackSpring) { toasts.removeAll { $0.id == id } }
-    frames[id] = nil
-    emitDismissed(id, reason: reason)
-    notifyEmpty()
+  private func attachImage(id: String, generation: Int, image: UIImage?) {
+    guard imageGeneration[id] == generation,
+          let index = toasts.firstIndex(where: { $0.id == id }) else { return }
+    if let image {
+      // Plain assignment: the id set is unchanged (stackGeneration untouched),
+      // so no container animation fires — the pixels just appear in the
+      // already-reserved slot.
+      toasts[index].image = ToastImage(uiImage: image)
+    } else {
+      // Undecodable bytes: collapse the reserved slot. The width probe reacts
+      // and the row animates to its narrower layout via the usual width morph.
+      toasts[index].expectsImage = false
+    }
   }
 
   /// Keeps at most `maxVisible` toasts per position, dismissing the oldest
@@ -219,40 +251,6 @@ final class ToastManager: ObservableObject {
     for victim in victims {
       teardown(id: victim.id, reason: "replaced")
     }
-  }
-
-  // MARK: - Auto-dismiss timers (wall-clock)
-
-  private func arm(_ model: ToastModel) {
-    cancelDeadline(model.id)
-    pausedRemaining[model.id] = nil // a fresh arm supersedes any banked pause
-    guard let duration = model.autoDuration else {
-      setDeadline(model.id, nil)
-      return
-    }
-    let deadline = Date().addingTimeInterval(duration)
-    setDeadline(model.id, deadline)
-    if !backgrounded { scheduleTask(for: model.id, fireAt: deadline) }
-  }
-
-  private func setDeadline(_ id: String, _ date: Date?) {
-    guard let index = toasts.firstIndex(where: { $0.id == id }) else { return }
-    toasts[index].deadline = date
-  }
-
-  private func scheduleTask(for id: String, fireAt: Date) {
-    deadlineTasks[id]?.cancel()
-    deadlineTasks[id] = Task { [weak self] in
-      let interval = max(0, fireAt.timeIntervalSinceNow)
-      try? await Task.sleep(for: .seconds(interval))
-      guard !Task.isCancelled, let self, !self.backgrounded else { return }
-      self.teardown(id: id, reason: "timeout")
-    }
-  }
-
-  private func cancelDeadline(_ id: String) {
-    deadlineTasks[id]?.cancel()
-    deadlineTasks[id] = nil
   }
 
   // MARK: - Events / haptics
@@ -283,14 +281,6 @@ final class ToastManager: ObservableObject {
     case .warning: Haptics.notify(.warning)
     case .error: Haptics.notify(.error)
     case .selection: Haptics.selection()
-    }
-  }
-
-  private func notifyEmpty() {
-    let empty = toasts.isEmpty
-    if empty != wasEmpty {
-      wasEmpty = empty
-      onEmptyChanged?(empty)
     }
   }
 }

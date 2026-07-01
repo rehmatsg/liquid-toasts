@@ -81,7 +81,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
   }
 
   Future<void> _clean() async {
-    await LiquidToasts.dismissAll();
+    await toast.dismissAll();
     await Future<void>.delayed(_gap);
   }
 
@@ -95,7 +95,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
       ('New email', 'envelope.fill'),
     ];
     for (final (message, icon) in items) {
-      LiquidToasts.show(
+      toast.raw(
         Toast(
           message: message,
           icon: icon,
@@ -109,7 +109,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
 
   // 2. Variable-color SF Symbol effect on the Wi-Fi glyph.
   Future<void> _variableColor() async {
-    LiquidToasts.show(
+    toast.raw(
       Toast(
         message: 'Trying to rejoin',
         icon: 'wifi',
@@ -124,7 +124,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
 
   // 3. Upload with a determinate progress bar.
   Future<void> _progress() async {
-    final handle = await LiquidToasts.show(
+    final handle = toast.raw(
       const Toast(
         message: 'Uploading 0%',
         icon: 'arrow.up.circle',
@@ -134,7 +134,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
     );
     for (var p = 1; p <= 10; p++) {
       await Future<void>.delayed(const Duration(milliseconds: 260));
-      await handle.update(
+      await handle.replace(
         Toast(
           message: 'Uploading ${p * 10}%',
           icon: 'arrow.up.circle',
@@ -143,7 +143,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
         ),
       );
     }
-    await handle.update(
+    await handle.replace(
       const Toast(
         message: 'Upload complete',
         icon: 'checkmark.circle.fill',
@@ -157,7 +157,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
 
   // 4. Action button with an inline Undo.
   Future<void> _action() async {
-    final handle = await LiquidToasts.show(
+    final handle = toast.raw(
       Toast(
         message: 'Moved to trash',
         icon: 'trash.fill',

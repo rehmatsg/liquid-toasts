@@ -31,7 +31,7 @@ class _HomePageState extends State<HomePage> {
   int _replaceCount = 0;
 
   void _animatedIcon(ToastSymbolEffect effect, String icon, String label) {
-    LiquidToasts.show(Toast(
+    toast.raw(Toast(
       message: label,
       icon: icon,
       style: ToastStyleOverride(symbolEffect: effect),
@@ -53,57 +53,53 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
           const _Section('Semantic'),
-          _Btn('Success', () => LiquidToasts.success('Saved to favorites')),
-          _Btn('Error', () => LiquidToasts.error('Could not connect')),
-          _Btn('Warning', () => LiquidToasts.warning('Low storage')),
-          _Btn('Info', () => LiquidToasts.info('3 updates available')),
+          _Btn('Success', () => toast.success('Saved to favorites')),
+          _Btn('Error', () => toast.error('Could not connect')),
+          _Btn('Warning', () => toast.warning('Low storage')),
+          _Btn('Info', () => toast.info('3 updates available')),
           const _Section('Action button'),
           _Btn('Warning + action', () {
-            LiquidToasts.warning(
+            toast.warning(
               'Low storage',
               duration: null,
               action: ToastAction(
                 label: 'Manage',
                 role: ToastActionRole.primary,
-                onPressed: () => LiquidToasts.info('Opening settings…'),
+                onPressed: () => toast.info('Opening settings…'),
               ),
             );
           }),
           _Btn('Error + destructive retry', () {
-            LiquidToasts.error(
+            toast.error(
               'Upload failed',
               duration: null,
               action: ToastAction(
                 label: 'Retry',
                 role: ToastActionRole.destructive,
-                onPressed: () => LiquidToasts.success('Retrying…'),
+                onPressed: () => toast.success('Retrying…'),
               ),
             );
           }),
           const _Section('Loading lifecycle'),
           _Btn('Loading → success', () async {
-            await LiquidToasts.showLoading<String>(
+            await toast.promise<String>(
               _fakeWork(),
-              config: const LoadingToast(
-                loadingMessage: 'Syncing…',
-                successMessage: 'Synced',
-              ),
+              loading: 'Syncing…',
+              success: 'Synced',
             );
           }),
           _Btn('Loading → error', () async {
             try {
-              await LiquidToasts.showLoading<String>(
+              await toast.promise<String>(
                 _fakeWork(fail: true),
-                config: const LoadingToast(
-                  loadingMessage: 'Uploading…',
-                  errorMessage: 'Upload failed',
-                ),
+                loading: 'Uploading…',
+                error: 'Upload failed',
               );
             } catch (_) {/* handled by the toast */}
           }),
           const _Section('Positioning & stacking'),
           _Btn('Bottom toast', () {
-            LiquidToasts.show(const Toast(
+            toast.raw(const Toast(
               message: 'Copied link',
               icon: 'link',
               position: ToastPosition.bottomCenter,
@@ -111,13 +107,13 @@ class _HomePageState extends State<HomePage> {
           }),
           _Btn('Stack 4 quickly', () async {
             for (var i = 1; i <= 4; i++) {
-              LiquidToasts.info('Notification #$i');
+              toast.info('Notification #$i');
               await Future<void>.delayed(const Duration(milliseconds: 220));
             }
           }),
           const _Section('Persistent, replace & progress'),
           _Btn('Persistent + dismiss via handle', () async {
-            final handle = await LiquidToasts.show(const Toast(
+            final handle = toast.raw(const Toast(
               message: 'Connecting…',
               icon: 'wifi',
               duration: null,
@@ -130,7 +126,7 @@ class _HomePageState extends State<HomePage> {
           }),
           _Btn('Replace-by-key (tap repeatedly)', () {
             _replaceCount++;
-            LiquidToasts.info(
+            toast.info(
               'Tapped $_replaceCount time(s)',
               groupKey: 'counter',
               duration: null,
@@ -144,14 +140,14 @@ class _HomePageState extends State<HomePage> {
           _Btn('Variable color', () => _animatedIcon(ToastSymbolEffect.variableColor, 'wifi', 'Variable color')),
           _Btn('Draw on (iOS 26)', () => _animatedIcon(ToastSymbolEffect.drawOn, 'checkmark.seal', 'Draw on')),
           const _Section('Bulk'),
-          _Btn('Dismiss all', () => LiquidToasts.dismissAll()),
+          _Btn('Dismiss all', () => toast.dismissAll()),
         ],
       ),
     );
   }
 
   Future<void> _runProgress() async {
-    final handle = await LiquidToasts.show(const Toast(
+    final handle = toast.raw(const Toast(
       message: 'Uploading 0%',
       icon: 'arrow.up.circle',
       duration: null,

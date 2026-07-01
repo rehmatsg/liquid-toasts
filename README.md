@@ -65,7 +65,7 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 
 ```yaml
 dependencies:
-  liquid_toasts: ^0.0.1
+  liquid_toasts: ^0.3.0
 ```
 
 ## Usage
@@ -73,17 +73,18 @@ dependencies:
 ```dart
 import 'package:liquid_toasts/liquid_toasts.dart';
 
-// Semantic one-liners
-LiquidToasts.success('Saved to favorites');
-LiquidToasts.error('Could not connect');
-LiquidToasts.warning('Low storage');
-LiquidToasts.info('3 updates available');
+// Semantic one-liners — fire and forget, no await, no BuildContext
+toast.success('Saved to favorites');
+toast.error('Could not connect');
+toast.warning('Low storage');
+toast.info('3 updates available');
+toast('Plain message'); // the object is callable
 ```
 
 ### Action button
 
 ```dart
-LiquidToasts.warning(
+toast.warning(
   'Low storage',
   duration: null, // persistent until tapped/dismissed
   action: ToastAction(
@@ -94,74 +95,88 @@ LiquidToasts.warning(
 );
 ```
 
-### Loading toast (the call returns your result)
+### Wrap a future (the call returns your result)
 
 ```dart
-final user = await LiquidToasts.showLoading<User>(
+final user = await toast.promise(
   api.signIn(email, password),
-  config: const LoadingToast(
-    loadingMessage: 'Signing in…',
-    successMessage: 'Welcome back!',
-  ),
-  onSuccess: (u) => Toast.success(message: 'Hi ${u.firstName}!'),
-  onError: (e, _) => Toast.error(message: 'Sign-in failed'),
+  loading: 'Signing in…',
+  success: (u) => 'Welcome back, ${u.firstName}!',
+  error: 'Sign-in failed',
 );
 // `user` is your value; on failure the call rethrows so your try/catch fires.
 ```
 
-### Persistent toast + handle
+`loading` / `success` / `error` each take a `String`, a full `Toast`, or a
+builder (`(value) => …` / `(error) => …`).
+
+### Persistent toast + live handle
 
 ```dart
-final handle = await LiquidToasts.show(const Toast(
-  message: 'Connecting…',
-  icon: 'wifi',
-  duration: null,
-));
-await handle.update(Toast.success(message: 'Connected'));
-await handle.dismiss();
-final reason = await handle.onDismissed; // always completes
+final t = toast.loading('Connecting…');       // handle returned synchronously
+await Future.delayed(const Duration(seconds: 2));
+t.update(loading: false, message: 'Connected', semantic: ToastSemantic.success);
+t.dismiss();
+final reason = await t.onDismissed;           // always completes
 ```
+
+`update` patches only the fields you pass (rapid patches compose, in order);
+`replace(Toast(...))` swaps the content wholesale.
 
 ### Positioning, replace-by-key, progress
 
 ```dart
 // Bottom toast
-LiquidToasts.show(const Toast(
-  message: 'Copied link',
-  icon: 'link',
-  position: ToastPosition.bottomCenter,
-));
+toast.show('Copied link', icon: 'link', position: ToastPosition.bottomCenter);
 
 // Replace-or-update instead of stacking duplicates
-LiquidToasts.info('Reconnecting…', groupKey: 'net', duration: null);
+toast.info('Reconnecting…', groupKey: 'net', duration: null);
 
-// Determinate progress
-final h = await LiquidToasts.show(const Toast(
-  message: 'Uploading…', duration: null, progress: 0,
-));
-await h.update(const Toast(message: 'Uploading…', duration: null, progress: 0.6));
+// Determinate progress via patch updates
+final t = toast.show('Uploading…', duration: null, progress: 0);
+t.update(progress: 0.6);
+t.update(progress: 1.0, message: 'Uploaded', duration: const Duration(seconds: 2));
 ```
 
 ### App-wide defaults
 
 ```dart
-LiquidToasts.setDefaults(const LiquidToastsConfig(
+toast.setDefaults(const LiquidToastsConfig(
   defaultPosition: ToastPosition.topCenter,
-  defaultDuration: Duration(seconds: 3),
   maxVisible: 3,
 ));
 ```
+
+`defaultDuration` left null keeps the per-semantic defaults
+(success/info/warning 3 s, error 4 s).
+
+> **Name collision?** `import 'package:liquid_toasts/liquid_toasts.dart' hide
+> toast;` and use `Toaster.instance`.
 
 ## API at a glance
 
 | Type | Purpose |
 |---|---|
-| `LiquidToasts` | Static facade: `show` · `success/error/warning/info` · `showLoading` · `dismiss/dismissAll` · `queryGeometry` · `setDefaults` · `activeCount/activeIds` |
-| `Toast` | Immutable content (message, title, SF Symbol icon, semantic, style, position, duration, action, progress, haptic, …) with named constructors |
+| `toast` (a `Toaster`) | The primary API: callable `show` · `success/error/warning/info/loading` · `raw(Toast)` · `promise` · `dismiss/dismissAll` · `setDefaults` · `queryGeometry` · `activeCount/activeIds` — all shows return the handle synchronously |
+| `Toast` | Immutable content (message, title, SF Symbol icon, semantic, style, position, duration, action, progress, haptic, …) with named constructors and `copyWith` |
 | `ToastAction` | Single action button (`label`, `onPressed`, `role`, `color`) |
-| `ToastHandle` | Live controller: `update`, `dismiss`, `onDismissed` |
-| `LoadingToast` | Loading→success/error phase config |
+| `ToastHandle` | Live controller: patch-style `update(...)`, `replace(Toast)`, `dismiss`, `onDismissed` |
 | `ToastStyleOverride` / `ToastColor` | Per-toast tint/foreground/glass overrides (adaptive light/dark) |
+| `LiquidToasts` / `LoadingToast` | **Deprecated** legacy facade — working delegates until 1.0 |
+
+## Migrating from `LiquidToasts`
+
+The old static facade still works (with deprecation hints) and shares the same
+engine, so you can migrate incrementally:
+
+| Before | After |
+|---|---|
+| `await LiquidToasts.success('Hi')` | `toast.success('Hi')` (no await) |
+| `await LiquidToasts.show(Toast(...))` | `toast.raw(Toast(...))` |
+| `LiquidToasts.showLoading(f, config: LoadingToast(...))` | `toast.promise(f, loading:, success:, error:)` |
+| `handle.update(Toast(...))` | `handle.replace(Toast(...))` — or patch: `handle.update(progress: 0.6)` |
+| `LiquidToasts.dismissAll()` | `toast.dismissAll()` |
+| `LiquidToasts.setDefaults(...)` | `toast.setDefaults(...)` |
 
 ## Notes for contributors
 

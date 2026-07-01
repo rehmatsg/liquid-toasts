@@ -29,7 +29,7 @@ const _hold = Duration(milliseconds: 1500);
 Future<void> _progressLinear() async {
   const message = 'Uploading your photo library to iCloud — keep the app open '
       'until this finishes.';
-  final handle = await LiquidToasts.show(const Toast(
+  final handle = toast.raw(const Toast(
     title: 'Backing up',
     message: message,
     icon: 'icloud.fill',
@@ -61,7 +61,7 @@ Future<void> _progressLinear() async {
 
 // 2. Determinate circular progress ring in the leading slot.
 Future<void> _progressCircular() async {
-  final handle = await LiquidToasts.show(const Toast(
+  final handle = toast.raw(const Toast(
     message: 'Downloading season 2',
     duration: null,
     progress: 0,
@@ -87,7 +87,7 @@ Future<void> _progressCircular() async {
 
 // 3. Multiline toast with an action button (the text column yields to the button).
 Future<void> _actionMultiline() async {
-  final handle = await LiquidToasts.show(Toast(
+  final handle = toast.raw(Toast(
     message: 'Your conversation with Alex was moved to Archive. You can find it '
         'anytime in archived chats.',
     icon: 'archivebox.fill',

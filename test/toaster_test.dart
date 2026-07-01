@@ -1,10 +1,23 @@
 import 'dart:async';
+import 'dart:typed_data' show Uint8List;
 
+import 'package:flutter/painting.dart' show MemoryImage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
 import 'package:liquid_toasts/liquid_toasts_platform_interface.dart';
+import 'package:liquid_toasts/src/toast_engine.dart';
 
 import 'fake_platform.dart';
+
+/// A 1×1 transparent PNG (the canonical `kTransparentImage` bytes).
+final Uint8List _tinyPng = Uint8List.fromList(const <int>[
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, //
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, //
+  0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, //
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, //
+  0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+]);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -213,6 +226,30 @@ void main() {
       );
       expect(await future, 9);
       expect(fake.updates, isEmpty, reason: 'morph skipped, toast dismissed');
+    });
+  });
+
+  group('leading images', () {
+    test('a decodable image resolves to PNG bytes on the wire', () async {
+      final t = toast.show('pic', leadingImage: MemoryImage(_tinyPng));
+      await ToastEngine.instance.settle(t.id);
+      expect(fake.shown[t.id], isNotNull);
+      expect(fake.shownImageBytes[t.id], isNotNull);
+    });
+
+    test('a failing image is logged and the toast shows without bytes',
+        () async {
+      final t = toast.show('pic',
+          leadingImage: MemoryImage(Uint8List.fromList([1, 2, 3])));
+      await ToastEngine.instance.settle(t.id);
+      expect(fake.shown[t.id], isNotNull, reason: 'toast still shows');
+      expect(fake.shownImageBytes[t.id], isNull);
+    });
+
+    test('toasts without an image skip the pipeline entirely', () async {
+      final t = toast.show('plain');
+      await ToastEngine.instance.settle(t.id);
+      expect(fake.shownImageBytes[t.id], isNull);
     });
   });
 

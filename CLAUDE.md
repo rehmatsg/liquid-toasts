@@ -40,29 +40,49 @@ pub.dev are unaffected. CocoaPods is also supported (`ios/liquid_toasts.podspec`
 
 ## Architecture
 
-The plugin is a **two-layer bridge**: a context-free Dart facade that owns
+The plugin is a **two-layer bridge**: a context-free Dart engine that owns
 caller-facing state, and a SwiftUI overlay on iOS that owns all rendering and
 the actual toast stack. They communicate over a method channel (Dart→native
 commands) and an event channel (native→Dart lifecycle events).
 
 ### Dart side (`lib/`)
 
-- `LiquidToasts` (`lib/liquid_toasts.dart`) — the entire public API, all static.
-  Owns a `_registry` mapping toast id → `_Registration` (the dismissal
-  `Completer`, the action callback, the `onTap` callback). It mints ids, routes
-  inbound events to the right callback, and completes `ToastHandle.onDismissed`.
+- `ToastEngine` (`lib/src/toast_engine.dart`, internal singleton) — owns ALL
+  state: the registry mapping toast id → `ToastRegistration` (dismissal
+  `Completer`, action callback + `activeActionId`, `onTap`, `lastToast`,
+  generation counter, per-toast op chain), the event subscription, the memoized
+  handshake, and the config. Every platform operation for a toast runs on its
+  registration's **FIFO op chain**, which is what lets `show` return a handle
+  synchronously — an `update`/`dismiss` issued before the show acks just queues
+  behind it. Op errors never escape to fire-and-forget callers (a failed show
+  completes the handle `channelLost`). `dismissAll` chases in-flight shows with
+  an idempotent per-id dismiss so no native toast is orphaned.
   **All user callbacks (action/tap) live here, never cross the wire** — native
   only echoes back ids, so a stale tap after an `update` swapped the action is
-  dropped by comparing `activeActionId`.
+  dropped by comparing `activeActionId`; a replace/patch bumps the registration
+  `generation`, which supersedes any in-flight `loadingOnPress` completion.
+- `Toaster` / `toast` (`lib/src/toaster.dart`, exported) — the public API: a
+  const callable object (`toast('hi')`, `toast.success(...)`,
+  `toast.promise(...)`, `toast.raw(Toast)`), all delegating to the engine.
+  Convenience toasts are constructed in exactly one place (`_semanticShow`),
+  where omitted-vs-explicit-null duration is resolved
+  (explicit > `LiquidToastsConfig.defaultDuration` > `SemanticDefaults`).
+  A null `Toast.position` resolves to the config default in the engine.
+- `LiquidToasts` (`lib/liquid_toasts.dart`) — the **deprecated** legacy facade;
+  one-line delegates over the engine that keep the old contracts (its `show`
+  awaits the platform ack via `engine.settle`). Removed at 1.0.
 - `LiquidToastsPlatform` (`lib/liquid_toasts_platform_interface.dart`) — the
-  `PlatformInterface` the facade talks to; swap `.instance` with a fake in tests.
+  `PlatformInterface` the engine talks to; swap `.instance` with a fake in tests.
 - `MethodChannelLiquidToasts` (`lib/liquid_toasts_method_channel.dart`) — the iOS
   impl. Every command is wrapped in an `_envelope` carrying `protocolVersion`
   (currently `1`); bump it on incompatible wire changes.
-- `lib/src/` — the wire models: `toast.dart` (`Toast` + `toMap`), `toast_action.dart`,
-  `toast_handle.dart`, `loading_toast.dart`, `toast_event.dart` (inbound events +
-  `ToastDismissReason`), `toast_style.dart`, `toast_position.dart`,
-  `liquid_toasts_config.dart`, `ids.dart` (id minting).
+- `lib/src/` — the wire models: `toast.dart` (`Toast` + `copyWith` + `toMap`;
+  all constructors funnel through a canonical private `_raw` ctor),
+  `semantic_defaults.dart` (the ONLY home of per-semantic duration/maxLines/
+  haptic defaults), `toast_action.dart`, `toast_handle.dart` (patch-style
+  `update(...)` + `replace(Toast)`), `loading_toast.dart` (deprecated),
+  `toast_event.dart` (inbound events + `ToastDismissReason`), `toast_style.dart`,
+  `toast_position.dart`, `liquid_toasts_config.dart`, `ids.dart` (id minting).
 
 ### iOS side (`ios/liquid_toasts/Sources/liquid_toasts/`)
 
@@ -105,21 +125,31 @@ When changing anything that crosses the channel, keep both sides in lockstep:
   an expected race (toast already gone) — the facade reconciles by locally
   completing the handle so `onDismissed` never hangs.
 
-### Loading-toast contract
+### Promise / loading contract
 
-`LiquidToasts.showLoading<T>(future, ...)` shows a spinner, then morphs to
-success/error. It **returns the future's value / rethrows its error** — the
-visual is best-effort (skipped if the toast was already dismissed) but the
-caller always owns the outcome. Don't change this to swallow results.
+`toast.promise<T>(future, ...)` (and the deprecated `showLoading`, both backed
+by `ToastEngine.promiseWith`) shows a spinner, then morphs to success/error.
+It **returns the future's value / rethrows its error** — the visual is
+best-effort (skipped if the toast was already dismissed; a throwing builder is
+logged and never corrupts the outcome) but the caller always owns the result.
+Don't change this to swallow results. Promise specs (`loading`/`success`/
+`error`) accept `String | Toast | builder` and are validated **eagerly** so
+misuse throws `ArgumentError` at the call site.
 
 ## Testing notes
 
-- Dart tests use a `FakeLiquidToastsPlatform` (in `test/liquid_toasts_test.dart`)
+- Dart tests use the shared `FakeLiquidToastsPlatform` (`test/fake_platform.dart`)
   installed via `LiquidToastsPlatform.instance`, with manual control over the
-  event stream and which ids native considers "live".
-- `LiquidToasts.debugReset()` resets all static state between tests;
-  `LiquidToasts.debugEmit(event)` injects a native event into the router. Both are
+  event stream, which ids native considers "live", an ordered `callLog`, and a
+  `showGate` completer to simulate slow native acks (for in-flight-race tests).
+- `toast.debugReset()` resets all engine state between tests;
+  `toast.debugEmit(event)` injects a native event into the router. Both are
   `@visibleForTesting` — use them rather than reaching into private state.
+  `ToastEngine.instance.settle(id)` (import `src/toast_engine.dart`) awaits a
+  toast's queued platform ops — use it instead of pumping arbitrary delays.
+- `test/toaster_test.dart` covers the new API; `test/legacy_facade_test.dart`
+  is per-member smoke coverage of the deprecated facade (keep it green until
+  the 1.0 removal).
 
 ## Demo / showcase videos
 

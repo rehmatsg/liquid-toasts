@@ -8,7 +8,7 @@ import 'demo_harness.dart';
 /// stays up until the (async) `onPressed` future resolves — then it dismisses.
 ///
 /// An automated reel can't synthesize a real touch, so each preview shows the
-/// toast and then calls `LiquidToasts.debugTriggerAction` to fire the button
+/// toast and then calls `toast.debugTriggerAction` to fire the button
 /// exactly as a tap would (spinner → await onPressed → dismiss).
 ///
 /// Record:  tool/record_demo.sh --target lib/async_action_demo.dart --prefix ASYNCACTION
@@ -28,12 +28,12 @@ const _hold = Duration(milliseconds: 1500);
 /// A pretend network call the action awaits.
 Future<void> _work() => Future<void>.delayed(const Duration(milliseconds: 1700));
 
-Future<void> _run(Toast toast) async {
-  final handle = await LiquidToasts.show(toast);
+Future<void> _run(Toast spec) async {
+  final handle = toast.raw(spec);
   await Future<void>.delayed(const Duration(milliseconds: 900)); // button idle
   // No real touch in an automated reel — fire the button as a tap would.
   // ignore: invalid_use_of_visible_for_testing_member
-  await LiquidToasts.debugTriggerAction(handle.id); // spinner → await onPressed → dismiss
+  await toast.debugTriggerAction(handle.id); // spinner → await onPressed → dismiss
   await handle.onDismissed;
   await Future<void>.delayed(_hold);
 }

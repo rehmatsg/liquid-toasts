@@ -82,4 +82,36 @@ void main() {
     final ids = await platform.dismissAll();
     expect(ids, ['lt_x_0000']);
   });
+
+  test('update parses the applied ack and envelopes the payload', () async {
+    final applied = await platform.update(
+      'lt_x_0002',
+      const Toast(message: 'now'),
+    );
+    expect(applied, isTrue);
+    final args = calls.single.arguments as Map;
+    expect(args['protocolVersion'], 1);
+    expect(args['id'], 'lt_x_0002');
+  });
+
+  test('dismiss parses the dismissed ack', () async {
+    expect(await platform.dismiss('lt_x_0003'), isTrue);
+    final args = calls.single.arguments as Map;
+    expect(args['id'], 'lt_x_0003');
+    expect(args['animated'], isTrue);
+  });
+
+  test('missing acks fall back safely (show accepts, update/dismiss reject)',
+      () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async => null);
+    expect(await platform.show('id', const Toast(message: 'x')), isTrue);
+    expect(await platform.update('id', const Toast(message: 'x')), isFalse);
+    expect(await platform.dismiss('id'), isFalse);
+    expect(await platform.dismissAll(), isEmpty);
+  });
+
+  test('a raw Toast without a position serializes the topCenter fallback', () {
+    expect(const Toast(message: 'x').toMap()['position'], 'topCenter');
+  });
 }

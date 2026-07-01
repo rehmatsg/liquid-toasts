@@ -15,6 +15,9 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
   /// Last toast payload received per id (via `show`).
   final Map<String, Toast> shown = {};
 
+  /// Resolved image bytes received per id (via `show`), null when none.
+  final Map<String, Uint8List?> shownImageBytes = {};
+
   /// Every `update` payload, in arrival order.
   final List<({String id, Toast toast})> updates = [];
 
@@ -43,6 +46,7 @@ class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
     if (showGate != null) await showGate!.future;
     callLog.add('show:$id');
     shown[id] = toast;
+    shownImageBytes[id] = imageBytes;
     if (acceptShows) liveIds.add(id);
     return acceptShows;
   }

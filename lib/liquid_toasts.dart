@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart';
 import 'liquid_toasts_platform_interface.dart';
 import 'src/ids.dart';
 import 'src/liquid_toasts_config.dart';
+import 'src/semantic_defaults.dart';
 import 'src/loading_toast.dart';
 import 'src/toast.dart';
 import 'src/toast_action.dart';
@@ -105,7 +106,9 @@ class LiquidToasts {
         title: title,
         icon: icon,
         position: position ?? _config.defaultPosition,
-        duration: duration ?? _config.defaultDuration,
+        duration: duration ??
+            _config.defaultDuration ??
+            SemanticDefaults.successDuration,
         action: action,
         onTap: onTap,
         tapToDismiss: tapToDismiss,
@@ -135,7 +138,9 @@ class LiquidToasts {
         title: title,
         icon: icon,
         position: position ?? _config.defaultPosition,
-        duration: duration ?? _config.defaultDuration,
+        duration: duration ??
+            _config.defaultDuration ??
+            SemanticDefaults.errorDuration,
         action: action,
         onTap: onTap,
         tapToDismiss: tapToDismiss,
@@ -165,7 +170,9 @@ class LiquidToasts {
         title: title,
         icon: icon,
         position: position ?? _config.defaultPosition,
-        duration: duration ?? _config.defaultDuration,
+        duration: duration ??
+            _config.defaultDuration ??
+            SemanticDefaults.warningDuration,
         action: action,
         onTap: onTap,
         tapToDismiss: tapToDismiss,
@@ -195,7 +202,9 @@ class LiquidToasts {
         title: title,
         icon: icon,
         position: position ?? _config.defaultPosition,
-        duration: duration ?? _config.defaultDuration,
+        duration: duration ??
+            _config.defaultDuration ??
+            SemanticDefaults.infoDuration,
         action: action,
         onTap: onTap,
         tapToDismiss: tapToDismiss,

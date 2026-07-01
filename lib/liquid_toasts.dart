@@ -37,14 +37,15 @@ export 'src/toaster.dart' show Toaster;
 /// [Toaster.instance] instead.
 const Toaster toast = Toaster.instance;
 
-/// The static, context-free entry point for showing native iOS toasts.
+/// The legacy static facade, superseded by the global [toast] object.
 ///
-/// Everything is static — there is no [BuildContext] anywhere — so toasts can be
-/// shown from services, blocs, interceptors, or anywhere else:
+/// Every member delegates to the same engine as [toast] and keeps its original
+/// contract (`show` resolves after the native ack), so mixing old and new call
+/// sites is safe during migration. Removed in 1.0.
 ///
 /// ```dart
-/// LiquidToasts.success('Saved');
-/// final user = await LiquidToasts.showLoading(api.signIn(), config: ...);
+/// LiquidToasts.success('Saved');   // before
+/// toast.success('Saved');          // after
 /// ```
 class LiquidToasts {
   LiquidToasts._();
@@ -54,19 +55,24 @@ class LiquidToasts {
   /// Optional global hook mapping a thrown error to a user-safe message, used by
   /// [showLoading] when no per-call `onError` builder is supplied. Keeps
   /// `error.toString()` from leaking internals into a user-facing toast.
+  @Deprecated('Use toast.errorMessageResolver instead. Removed in 1.0.')
   static String Function(Object error)? get errorMessageResolver =>
       _engine.errorMessageResolver;
+  @Deprecated('Use toast.errorMessageResolver instead. Removed in 1.0.')
   static set errorMessageResolver(String Function(Object error)? resolver) =>
       _engine.errorMessageResolver = resolver;
 
   /// Number of toasts currently tracked (visible + queued).
+  @Deprecated('Use toast.activeCount instead. Removed in 1.0.')
   static int get activeCount => _engine.activeCount;
 
   /// Ids of toasts currently tracked.
+  @Deprecated('Use toast.activeIds instead. Removed in 1.0.')
   static List<String> get activeIds => _engine.activeIds;
 
   /// Sets app-wide defaults (used by the convenience constructors) and pushes
   /// stack/queue configuration to native.
+  @Deprecated('Use toast.setDefaults(...) instead. Removed in 1.0.')
   static Future<void> setDefaults(LiquidToastsConfig config) =>
       _engine.setDefaults(config);
 
@@ -76,9 +82,14 @@ class LiquidToasts {
 
   /// Shows [toast]. Resolves to a [ToastHandle] for later update/dismiss and to
   /// `await` its dismissal.
+  @Deprecated('Use toast.raw(Toast(...)) — or toast.show(message, ...) for '
+      'message-first calls. Both return the handle synchronously. '
+      'Removed in 1.0.')
   static Future<ToastHandle> show(Toast toast) => _show(toast);
 
   /// Convenience: a success toast.
+  @Deprecated('Use toast.success(...) instead (returns the handle '
+      'synchronously). Removed in 1.0.')
   static Future<ToastHandle> success(
     String message, {
     String? title,
@@ -111,6 +122,8 @@ class LiquidToasts {
       ));
 
   /// Convenience: an error toast.
+  @Deprecated('Use toast.error(...) instead (returns the handle '
+      'synchronously). Removed in 1.0.')
   static Future<ToastHandle> error(
     String message, {
     String? title,
@@ -143,6 +156,8 @@ class LiquidToasts {
       ));
 
   /// Convenience: a warning toast.
+  @Deprecated('Use toast.warning(...) instead (returns the handle '
+      'synchronously). Removed in 1.0.')
   static Future<ToastHandle> warning(
     String message, {
     String? title,
@@ -175,6 +190,8 @@ class LiquidToasts {
       ));
 
   /// Convenience: an info toast.
+  @Deprecated('Use toast.info(...) instead (returns the handle '
+      'synchronously). Removed in 1.0.')
   static Future<ToastHandle> info(
     String message, {
     String? title,
@@ -224,6 +241,8 @@ class LiquidToasts {
   ///   onSuccess: (u) => Toast.success(message: 'Hi ${u.name}!'),
   /// );
   /// ```
+  @Deprecated('Use toast.promise(future, loading:, success:, error:) instead. '
+      'Removed in 1.0.')
   static Future<T> showLoading<T>(
     Future<T> future, {
     required LoadingToast config,
@@ -241,12 +260,15 @@ class LiquidToasts {
       );
 
   /// Dismisses toast [id]. Prefer [ToastHandle.dismiss] when you hold a handle.
+  @Deprecated('Use toast.dismiss(id) instead. Removed in 1.0.')
   static Future<void> dismiss(String id) => _engine.dismiss(id);
 
   /// Dismisses every toast.
+  @Deprecated('Use toast.dismissAll() instead. Removed in 1.0.')
   static Future<void> dismissAll() => _engine.dismissAll();
 
   /// Advisory device geometry / capability snapshot.
+  @Deprecated('Use toast.queryGeometry() instead. Removed in 1.0.')
   static Future<Map<String, dynamic>> queryGeometry() =>
       _engine.queryGeometry();
 
@@ -264,16 +286,19 @@ class LiquidToasts {
   }
 
   /// Resets all static state. Test-only — lets each test start clean.
+  @Deprecated('Use toast.debugReset() instead. Removed in 1.0.')
   @visibleForTesting
   static Future<void> debugReset() => _engine.debugReset();
 
   /// Emits a native event into the engine's router. Test-only.
+  @Deprecated('Use toast.debugEmit(event) instead. Removed in 1.0.')
   @visibleForTesting
   static void debugEmit(ToastEvent event) => _engine.debugEmit(event);
 
   /// Simulates an action-button tap on the live toast [id] (drives the native
   /// loading spinner + lifecycle for a `loadingOnPress` action). For tests and
   /// the example's async-action demo, which can't synthesize a real touch.
+  @Deprecated('Use toast.debugTriggerAction(id) instead. Removed in 1.0.')
   @visibleForTesting
   static Future<void> debugTriggerAction(String id) =>
       _engine.debugTriggerAction(id);

@@ -1,69 +1,15 @@
+// Smoke coverage that the deprecated LiquidToasts facade keeps working as
+// thin delegates over the engine until its removal in 1.0.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
-import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
 import 'package:liquid_toasts/liquid_toasts_method_channel.dart';
 import 'package:liquid_toasts/liquid_toasts_platform_interface.dart';
 
-/// A recording fake platform with manual control over the event stream and
-/// which toast ids native considers "live".
-class FakeLiquidToastsPlatform extends LiquidToastsPlatform {
-  final StreamController<ToastEvent> _events =
-      StreamController<ToastEvent>.broadcast();
-
-  final List<String> liveIds = [];
-  final Map<String, Toast> shown = {};
-  final List<String> updated = [];
-  final List<String> finished = [];
-  bool acceptShows = true;
-
-  @override
-  Future<void> handshake(String session) async {}
-
-  @override
-  Future<void> configure(LiquidToastsConfig config) async {}
-
-  @override
-  Future<bool> show(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
-    shown[id] = toast;
-    if (acceptShows) liveIds.add(id);
-    return acceptShows;
-  }
-
-  @override
-  Future<bool> update(String id, Toast toast, {String? actionId, Uint8List? imageBytes}) async {
-    updated.add(id);
-    return liveIds.contains(id);
-  }
-
-  @override
-  Future<bool> dismiss(String id) async => liveIds.remove(id);
-
-  @override
-  Future<void> finishAction(String id) async => finished.add(id);
-
-  @override
-  Future<List<String>> dismissAll() async {
-    final ids = [...liveIds];
-    liveIds.clear();
-    return ids;
-  }
-
-  @override
-  Future<Map<String, dynamic>> queryGeometry() async => {};
-
-  @override
-  Stream<ToastEvent> get events => _events.stream;
-
-  void emitDismissed(String id, ToastDismissReason reason) {
-    liveIds.remove(id);
-    LiquidToasts.debugEmit(
-        ToastEvent(id: id, kind: ToastEventKind.dismissed, reason: reason));
-  }
-
-  Future<void> dispose() => _events.close();
-}
+import 'fake_platform.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -91,6 +37,20 @@ void main() {
     expect(a.id, isNot(b.id));
     expect(LiquidToasts.activeCount, 2);
     expect(LiquidToasts.activeIds, containsAll([a.id, b.id]));
+  });
+
+  test('show resolves only after the platform ack (legacy contract)',
+      () async {
+    final handle = await LiquidToasts.error('boom');
+    expect(fake.shown[handle.id]?.message, 'boom');
+    expect(fake.shown[handle.id]?.duration, const Duration(seconds: 4));
+  });
+
+  test('warning and info delegate with their semantic defaults', () async {
+    final w = await LiquidToasts.warning('careful');
+    final i = await LiquidToasts.info('fyi');
+    expect(fake.shown[w.id]?.semantic, ToastSemantic.warning);
+    expect(fake.shown[i.id]?.semantic, ToastSemantic.info);
   });
 
   test('dismissed event completes the handle and frees the registration',
@@ -176,7 +136,7 @@ void main() {
     expect(LiquidToasts.activeCount, 1, reason: 'spinner shown');
     completer.complete(42);
     expect(await future, 42);
-    expect(fake.updated.length, 1, reason: 'morphed loading -> success');
+    expect(fake.updatedIds.length, 1, reason: 'morphed loading -> success');
   });
 
   test('showLoading rethrows and morphs to error', () async {
@@ -188,7 +148,17 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     completer.completeError(StateError('boom'));
     await expectLater(future, throwsA(isA<StateError>()));
-    expect(fake.updated.length, 1, reason: 'morphed loading -> error');
+    expect(fake.updatedIds.length, 1, reason: 'morphed loading -> error');
+  });
+
+  test('showLoading honors the global errorMessageResolver', () async {
+    LiquidToasts.errorMessageResolver = (e) => 'friendly';
+    final future = LiquidToasts.showLoading<int>(
+      Future<int>.error(StateError('internal')),
+      config: const LoadingToast(loadingMessage: 'working'),
+    );
+    await expectLater(future, throwsA(isA<StateError>()));
+    expect(fake.updates.single.toast.message, 'friendly');
   });
 
   test('loading dismissed mid-flight still delivers the value, skips update',
@@ -203,7 +173,7 @@ void main() {
     fake.emitDismissed(id, ToastDismissReason.swipe);
     completer.complete(7);
     expect(await future, 7, reason: 'outcome delivered despite dismissal');
-    expect(fake.updated, isEmpty, reason: 'no update on a gone toast');
+    expect(fake.updatedIds, isEmpty, reason: 'no update on a gone toast');
   });
 
   test('two overlapping loading toasts resolve independently in any order',
@@ -240,6 +210,14 @@ void main() {
     fake.liveIds.clear(); // native dropped it without an event
     await handle.dismiss();
     expect(await handle.onDismissed, ToastDismissReason.manual);
+  });
+
+  test('setDefaults reaches the convenience methods', () async {
+    await LiquidToasts.setDefaults(const LiquidToastsConfig(
+      defaultDuration: Duration(seconds: 9),
+    ));
+    final h = await LiquidToasts.success('x');
+    expect(fake.shown[h.id]?.duration, const Duration(seconds: 9));
   });
 
   test('lost event channel fail-safe completes pending handles', () async {

@@ -9,6 +9,8 @@ import 'toast_style.dart';
 ///
 /// For dynamic, value-derived content use the `onSuccess` / `onError` builders
 /// on [LiquidToasts.showLoading], which take precedence over these fields.
+@Deprecated("Use toast.promise(...)'s loading/success/error parameters "
+    '(each takes a String, Toast, or builder). Removed in 1.0.')
 @immutable
 class LoadingToast {
   const LoadingToast({

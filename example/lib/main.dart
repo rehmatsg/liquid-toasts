@@ -123,7 +123,7 @@ class _HomePageState extends State<HomePage> {
               duration: null,
             ));
             await Future<void>.delayed(const Duration(seconds: 2));
-            await handle.update(
+            await handle.replace(
                 Toast.success(message: 'Connected', duration: null));
             await Future<void>.delayed(const Duration(seconds: 1));
             await handle.dismiss();
@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage> {
     ));
     for (var p = 1; p <= 10; p++) {
       await Future<void>.delayed(const Duration(milliseconds: 240));
-      await handle.update(Toast(
+      await handle.replace(Toast(
         message: 'Uploading ${p * 10}%',
         icon: 'arrow.up.circle',
         duration: null,
@@ -167,7 +167,7 @@ class _HomePageState extends State<HomePage> {
       ));
     }
     // Keep `progress` set so the toast height stays identical at completion.
-    await handle.update(const Toast(
+    await handle.replace(const Toast(
       message: 'Upload complete',
       icon: 'checkmark.circle.fill',
       semantic: ToastSemantic.success,

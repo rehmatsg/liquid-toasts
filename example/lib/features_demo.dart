@@ -39,7 +39,7 @@ Future<void> _progressLinear() async {
   ));
   for (var p = 1; p <= 10; p++) {
     await Future<void>.delayed(const Duration(milliseconds: 230));
-    await handle.update(Toast(
+    await handle.replace(Toast(
       title: 'Backing up',
       message: message,
       icon: 'icloud.fill',
@@ -50,7 +50,7 @@ Future<void> _progressLinear() async {
   }
   // One-liner done state: morphs from the wide multiline progress toast down to
   // a hugging single-line capsule (animated, not snapped).
-  await handle.update(const Toast(
+  await handle.replace(const Toast(
     message: 'Backed up to iCloud',
     icon: 'checkmark.circle.fill',
     semantic: ToastSemantic.success,
@@ -69,14 +69,14 @@ Future<void> _progressCircular() async {
   ));
   for (var p = 1; p <= 10; p++) {
     await Future<void>.delayed(const Duration(milliseconds: 230));
-    await handle.update(Toast(
+    await handle.replace(Toast(
       message: 'Downloading season 2',
       duration: null,
       progress: p / 10,
       progressStyle: ToastProgressStyle.circular,
     ));
   }
-  await handle.update(const Toast(
+  await handle.replace(const Toast(
     message: 'Download complete',
     icon: 'checkmark.circle.fill',
     semantic: ToastSemantic.success,

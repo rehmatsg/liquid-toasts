@@ -134,7 +134,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
     );
     for (var p = 1; p <= 10; p++) {
       await Future<void>.delayed(const Duration(milliseconds: 260));
-      await handle.update(
+      await handle.replace(
         Toast(
           message: 'Uploading ${p * 10}%',
           icon: 'arrow.up.circle',
@@ -143,7 +143,7 @@ class _ShowcaseStageState extends State<ShowcaseStage> {
         ),
       );
     }
-    await handle.update(
+    await handle.replace(
       const Toast(
         message: 'Upload complete',
         icon: 'checkmark.circle.fill',

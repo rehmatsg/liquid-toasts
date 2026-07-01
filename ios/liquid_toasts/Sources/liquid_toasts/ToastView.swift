@@ -38,13 +38,10 @@ struct ToastView: View {
 
   /// Width of a multiline toast: the full device width minus a comfortable
   /// horizontal margin on each side, so it reads clearly inset (like an iOS
-  /// notification) rather than edge-to-edge. Capped at `multilineMaxWidth` so it
-  /// never stretches unwieldily wide on large screens (iPad / landscape) — and
-  /// is never the full device width.
-  private var multilineSideMargin: CGFloat { 20 }
-  private var multilineMaxWidth: CGFloat { 440 }
+  /// notification) rather than edge-to-edge. Capped so it never stretches
+  /// unwieldily wide on large screens (iPad / landscape).
   private var multilineWidth: CGFloat {
-    min(multilineMaxWidth, deviceWidth - multilineSideMargin * 2)
+    ToastMetrics.multilineWidth(deviceWidth: deviceWidth)
   }
 
   /// Concrete frame width: the multiline width when wrapped, else the measured
@@ -61,7 +58,8 @@ struct ToastView: View {
     // multiline boundary without the shape snapping). The radius keys off width:
     // at the full multiline width use 22; narrower (a hugging single-line toast)
     // use a large radius that `RoundedRectangle` clamps to a capsule.
-    let radius = toast.style?.cornerRadius ?? (isMultiline ? 22 : 99)
+    let radius = toast.style?.cornerRadius
+      ?? (isMultiline ? ToastMetrics.multilineCornerRadius : ToastMetrics.capsuleCornerRadius)
     return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 
@@ -69,19 +67,14 @@ struct ToastView: View {
     toast.style?.foreground?.resolved(scheme) ?? .primary
   }
 
-  /// Leading inset — roomier when multiline so text breathes off the icon.
-  private var leadingPadding: CGFloat { isMultiline ? 18 : 16 }
-
-  /// Vertical inset — taller when multiline so the rounded rect isn't cramped.
-  private var verticalPadding: CGFloat { isMultiline ? 14 : 11 }
-
-  /// Trailing inset. With an action present it matches the (tighter) button
-  /// margin; otherwise it mirrors the leading inset.
-  private var trailingPadding: CGFloat { toast.action == nil ? leadingPadding : 11 }
-
-  /// Spacing between the icon, the text column, and the action — widened in
-  /// multiline layouts.
-  private var rowSpacing: CGFloat { isMultiline ? 14 : 12 }
+  /// Row insets & spacing — shared with the off-screen probes via ToastMetrics
+  /// so the wrap/width decisions can never drift from the live layout.
+  private var leadingPadding: CGFloat { ToastMetrics.leadingPadding(multiline: isMultiline) }
+  private var verticalPadding: CGFloat { ToastMetrics.verticalPadding(multiline: isMultiline) }
+  private var trailingPadding: CGFloat {
+    ToastMetrics.trailingPadding(multiline: isMultiline, hasAction: toast.action != nil)
+  }
+  private var rowSpacing: CGFloat { ToastMetrics.rowSpacing(multiline: isMultiline) }
 
   /// Whether a leading glyph (spinner or SF Symbol) will render. When false the
   /// icon is dropped from the row entirely — slot and spacing — so a text-only
@@ -150,13 +143,15 @@ struct ToastView: View {
             .progressViewStyle(.linear)
             .tint(accentTint)
             // Fills the text column when multiline; fixed on a hugging capsule.
-            .frame(maxWidth: isMultiline ? .infinity : 160)
+            .frame(maxWidth: isMultiline ? .infinity : ToastMetrics.linearProgressWidth)
             .padding(.top, 4)
         }
       }
       // Single-line caps the text column so the capsule never spans the screen;
       // multiline fills the fixed-width rounded rect.
-      .frame(maxWidth: isMultiline ? .infinity : 260, alignment: centerText ? .center : .leading)
+      .frame(
+        maxWidth: isMultiline ? .infinity : ToastMetrics.textColumnMaxWidth,
+        alignment: centerText ? .center : .leading)
 
       if let action = toast.action {
         ActionButton(action: action, isLoading: isActionLoading, onTap: onAction)
@@ -201,7 +196,7 @@ struct ToastView: View {
         if naturalWidth == 0 {
           naturalWidth = w
         } else if w != naturalWidth {
-          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { naturalWidth = w }
+          withAnimation(ToastMetrics.stackSpring) { naturalWidth = w }
         }
       }
       .accessibilityElement(children: .combine)
@@ -218,12 +213,17 @@ struct ToastView: View {
     // Reference width = the text column in the *multiline* layout (fixed insets,
     // independent of `isMultiline`) so the measurement can't feed back into
     // itself and oscillate.
-    let leading: CGFloat = 18
-    let trailing: CGFloat = toast.action == nil ? 18 : 11
-    let glyph: CGFloat = showsLeading ? 22 + 14 : 0 // leading slot + row spacing
+    let leading = ToastMetrics.leadingPadding(multiline: true)
+    let trailing = ToastMetrics.trailingPadding(multiline: true, hasAction: toast.action != nil)
+    let spacing = ToastMetrics.rowSpacing(multiline: true)
+    let glyph: CGFloat = showsLeading ? ToastMetrics.iconSlot + spacing : 0
     // Subtract the action button (measured; estimate until first layout) + spacing.
-    let act: CGFloat = toast.action != nil ? (actionWidth > 0 ? actionWidth : 72) + 14 : 0
-    let reference = max(120, multilineWidth - leading - trailing - glyph - act)
+    let act: CGFloat = toast.action != nil
+      ? (actionWidth > 0 ? actionWidth : ToastMetrics.actionWidthEstimate) + spacing
+      : 0
+    let reference = max(
+      ToastMetrics.probeMinReferenceWidth,
+      multilineWidth - leading - trailing - glyph - act)
     return Text(toast.message)
       .font(.system(.subheadline, design: .rounded))
       .lineLimit(toast.maxLines)
@@ -244,7 +244,7 @@ struct ToastView: View {
         } else if multi != isMultiline {
           // A morph (e.g. an upload's progress -> "done") crossed the wrap
           // boundary — animate the width + reflow instead of snapping.
-          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+          withAnimation(ToastMetrics.stackSpring) {
             isMultiline = multi
           }
         }
@@ -256,9 +256,9 @@ struct ToastView: View {
   /// it and `multilineWidth` rather than snapping. Mirrors the single-line
   /// layout (16/12 insets, 260pt text cap, icon + action slots).
   private var widthProbe: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: ToastMetrics.rowSpacing(multiline: false)) {
       if showsLeading {
-        Color.clear.frame(width: 22, height: 22)
+        Color.clear.frame(width: ToastMetrics.iconSlot, height: ToastMetrics.iconSlot)
       }
       VStack(alignment: .leading, spacing: 2) {
         if let title = toast.title, !title.isEmpty {
@@ -270,13 +270,14 @@ struct ToastView: View {
           .font(.system(.subheadline, design: .rounded))
           .lineLimit(1)
       }
-      .frame(maxWidth: 260, alignment: .leading)
+      .frame(maxWidth: ToastMetrics.textColumnMaxWidth, alignment: .leading)
       if toast.action != nil {
         Color.clear.frame(width: max(1, actionWidth), height: 1)
       }
     }
-    .padding(.leading, 16)
-    .padding(.trailing, toast.action == nil ? 16 : 11)
+    .padding(.leading, ToastMetrics.leadingPadding(multiline: false))
+    .padding(.trailing,
+             ToastMetrics.trailingPadding(multiline: false, hasAction: toast.action != nil))
     .fixedSize(horizontal: true, vertical: false)
     .background(
       GeometryReader { geo in
@@ -289,7 +290,7 @@ struct ToastView: View {
   // MARK: - Drag
 
   private var dragGesture: some Gesture {
-    DragGesture(minimumDistance: 6)
+    DragGesture(minimumDistance: ToastMetrics.dragMinDistance)
       .onChanged { value in
         if !isDragging {
           isDragging = true
@@ -297,7 +298,8 @@ struct ToastView: View {
         }
         let dy = value.translation.height
         let towardEdge = toast.position.isBottom ? dy > 0 : dy < 0
-        dragOffset = towardEdge ? dy : dy * 0.35 // rubber-band the wrong way
+        // Rubber-band drags away from the dismiss edge.
+        dragOffset = towardEdge ? dy : dy * ToastMetrics.rubberBandFactor
       }
       .onEnded { value in
         isDragging = false
@@ -305,12 +307,14 @@ struct ToastView: View {
         // Velocity-aware: a quick flick dismisses even if the finger barely moved.
         let predicted = value.predictedEndTranslation.height
         let towardEdge = toast.position.isBottom ? dy > 0 : dy < 0
-        let flick = toast.position.isBottom ? predicted > 140 : predicted < -140
-        if towardEdge && (abs(dy) > 28 || flick) {
+        let flick = toast.position.isBottom
+          ? predicted > ToastMetrics.flickDistance
+          : predicted < -ToastMetrics.flickDistance
+        if towardEdge && (abs(dy) > ToastMetrics.dragCommitDistance || flick) {
           Haptics.impact(.medium) // commit
           onSwipe()
         } else {
-          withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+          withAnimation(ToastMetrics.settleSpring) {
             dragOffset = 0
           }
         }
@@ -384,7 +388,7 @@ struct CircularProgressView: View {
         .rotationEffect(.degrees(-90))
         .animation(.easeInOut(duration: 0.25), value: clamped)
     }
-    .frame(width: 20, height: 20)
+    .frame(width: ToastMetrics.progressRingSize, height: ToastMetrics.progressRingSize)
   }
 }
 
@@ -399,7 +403,7 @@ struct AvatarView: View {
     Image(uiImage: image)
       .resizable()
       .scaledToFill()
-      .frame(width: 26, height: 26)
+      .frame(width: ToastMetrics.avatarSize, height: ToastMetrics.avatarSize)
       .clipShape(Circle())
       .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
   }

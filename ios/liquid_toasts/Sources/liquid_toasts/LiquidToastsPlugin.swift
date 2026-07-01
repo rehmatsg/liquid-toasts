@@ -7,7 +7,6 @@ import UIKit
 /// main thread, so UI is touched directly (no actor hop).
 public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
   private var eventSink: FlutterEventSink?
-  private var session: String?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let methods = FlutterMethodChannel(name: "liquid_toasts", binaryMessenger: registrar.messenger())
@@ -40,14 +39,15 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
     switch call.method {
     case "handshake":
-      session = args?["session"] as? String
+      // The Dart session prefix in the args is reserved wire data — native
+      // flushes unconditionally on every handshake (fresh isolate = fresh UI).
       manager.flushAll()
       host.ensureInstalled()
       result(nil)
 
     case "configure":
-      if let value = ltInt(args?["maxVisible"]) { manager.maxVisible = max(1, value) }
-      if let value = ltInt(args?["maxQueue"]) { manager.maxQueue = max(1, value) }
+      if let value = args?.int("maxVisible") { manager.maxVisible = max(1, value) }
+      if let value = args?.int("maxQueue") { manager.maxQueue = max(1, value) }
       if let policy = args?["dropPolicy"] as? String { manager.dropOldest = policy != "dropNewest" }
       result(nil)
 
@@ -63,7 +63,7 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         "accepted": true,
         "capability": [
           "dynamicIslandOriginUsed": false,
-          "glassMode": glassMode(),
+          "glassMode": Capabilities.glassModeString,
         ],
       ])
 
@@ -110,11 +110,6 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     default:
       result(FlutterMethodNotImplemented)
     }
-  }
-
-  private func glassMode() -> String {
-    if #available(iOS 26.0, *) { return "liquidGlass" }
-    return "frosted"
   }
 
   // MARK: - FlutterStreamHandler

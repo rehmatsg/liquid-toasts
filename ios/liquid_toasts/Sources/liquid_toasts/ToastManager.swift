@@ -30,16 +30,13 @@ final class ToastManager: ObservableObject {
 
   /// Emits a wire-ready event payload to the plugin's event sink.
   var onEvent: (([String: Any]) -> Void)?
-  /// Notified when the stack transitions between empty and non-empty.
-  var onEmptyChanged: ((Bool) -> Void)?
 
   private var deadlineTasks: [String: Task<Void, Never>] = [:]
   /// Banked remaining auto-dismiss time for toasts paused mid-interaction.
   private var pausedRemaining: [String: TimeInterval] = [:]
   private var backgrounded = false
-  private var wasEmpty = true
 
-  private var stackSpring: Animation { .spring(response: 0.42, dampingFraction: 0.82) }
+  private var stackSpring: Animation { ToastMetrics.stackSpring }
 
   // MARK: - Present / update / dismiss
 
@@ -67,7 +64,6 @@ final class ToastManager: ObservableObject {
     arm(model)
     fireHaptic(model)
     emitShown(model)
-    notifyEmpty()
   }
 
   @discardableResult
@@ -89,9 +85,7 @@ final class ToastManager: ObservableObject {
 
   @discardableResult
   func dismiss(id: String, reason: String) -> Bool {
-    guard toasts.contains(where: { $0.id == id }) else { return false }
     teardown(id: id, reason: reason)
-    return true
   }
 
   func dismissAll(reason: String) -> [String] {
@@ -108,7 +102,6 @@ final class ToastManager: ObservableObject {
     busyActionIds.removeAll()
     withAnimation(.none) { toasts.removeAll() }
     frames.removeAll()
-    notifyEmpty()
   }
 
   // MARK: - Interaction (called from the SwiftUI layer)
@@ -196,15 +189,16 @@ final class ToastManager: ObservableObject {
 
   // MARK: - Teardown (exactly once)
 
-  private func teardown(id: String, reason: String) {
-    guard toasts.contains(where: { $0.id == id }) else { return }
+  @discardableResult
+  private func teardown(id: String, reason: String) -> Bool {
+    guard let index = toasts.firstIndex(where: { $0.id == id }) else { return false }
     cancelDeadline(id)
     pausedRemaining[id] = nil
     busyActionIds.remove(id)
-    withAnimation(stackSpring) { toasts.removeAll { $0.id == id } }
+    withAnimation(stackSpring) { _ = toasts.remove(at: index) }
     frames[id] = nil
     emitDismissed(id, reason: reason)
-    notifyEmpty()
+    return true
   }
 
   /// Keeps at most `maxVisible` toasts per position, dismissing the oldest
@@ -283,14 +277,6 @@ final class ToastManager: ObservableObject {
     case .warning: Haptics.notify(.warning)
     case .error: Haptics.notify(.error)
     case .selection: Haptics.selection()
-    }
-  }
-
-  private func notifyEmpty() {
-    let empty = toasts.isEmpty
-    if empty != wasEmpty {
-      wasEmpty = empty
-      onEmptyChanged?(empty)
     }
   }
 }

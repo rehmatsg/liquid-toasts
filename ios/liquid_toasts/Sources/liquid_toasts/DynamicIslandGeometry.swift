@@ -42,9 +42,6 @@ enum DynamicIslandGeometry {
     let bounds = window?.bounds ?? UIScreen.main.bounds
     let type = cutoutType(window)
 
-    var glassMode = "frosted"
-    if #available(iOS 26.0, *) { glassMode = "liquidGlass" }
-
     var dict: [String: Any] = [
       "hasDynamicIsland": type == "dynamicIsland",
       "cutoutType": type,
@@ -57,7 +54,7 @@ enum DynamicIslandGeometry {
         "scale": window?.screen.scale ?? UIScreen.main.scale,
       ],
       "supportsDynamicIslandOrigin": hasDynamicIsland(window),
-      "glassMode": glassMode,
+      "glassMode": Capabilities.glassModeString,
       "iosVersion": UIDevice.current.systemVersion,
     ]
     if type != "none" {

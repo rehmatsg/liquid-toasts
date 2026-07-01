@@ -102,9 +102,7 @@ struct ToastContainerView: View {
   }
 
   private var motion: Animation? {
-    reduceMotion
-      ? .easeInOut(duration: 0.2)
-      : .spring(response: 0.42, dampingFraction: 0.82)
+    reduceMotion ? .easeInOut(duration: 0.2) : ToastMetrics.stackSpring
   }
 }
 
@@ -138,7 +136,7 @@ private struct EntranceView<Content: View>: View {
         // Defer one runloop so the view renders in the offset state first, then
         // springs to identity (a same-transaction set would snap).
         DispatchQueue.main.async {
-          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { shown = true }
+          withAnimation(ToastMetrics.stackSpring) { shown = true }
         }
       }
   }

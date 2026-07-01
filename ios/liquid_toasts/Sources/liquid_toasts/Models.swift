@@ -2,23 +2,6 @@ import Flutter
 import SwiftUI
 import UIKit
 
-// MARK: - Number decoding helpers (StandardMessageCodec bridges ints/doubles/bools as NSNumber)
-
-@inline(__always) func ltInt(_ value: Any?) -> Int? {
-  if let n = value as? NSNumber { return n.intValue }
-  return value as? Int
-}
-
-@inline(__always) func ltDouble(_ value: Any?) -> Double? {
-  if let n = value as? NSNumber { return n.doubleValue }
-  return value as? Double
-}
-
-@inline(__always) func ltBool(_ value: Any?) -> Bool? {
-  if let n = value as? NSNumber { return n.boolValue }
-  return value as? Bool
-}
-
 // MARK: - Enums (raw values mirror the Dart `.name` wire format)
 
 enum ToastSemantic: String {
@@ -125,8 +108,8 @@ struct AdaptiveColor {
 
   init?(_ value: Any?) {
     guard let map = value as? [String: Any],
-          let l = ltInt(map["light"]),
-          let d = ltInt(map["dark"]) else { return nil }
+          let l = map.int("light"),
+          let d = map.int("dark") else { return nil }
     light = Color(argb: l)
     dark = Color(argb: d)
   }
@@ -149,10 +132,9 @@ struct ToastStyleModel {
     tint = AdaptiveColor(map["tint"])
     foreground = AdaptiveColor(map["foreground"])
     iconColor = AdaptiveColor(map["iconColor"])
-    glass = (map["glass"] as? String).flatMap(ToastGlassIntent.init(rawValue:))
-    if let cr = ltDouble(map["cornerRadius"]) { cornerRadius = CGFloat(cr) }
-    symbolEffect = (map["symbolEffect"] as? String)
-      .flatMap(ToastSymbolEffect.init(rawValue:)) ?? .none
+    glass = map.enumValue("glass")
+    cornerRadius = map.cgFloat("cornerRadius")
+    symbolEffect = map.enumValue("symbolEffect", default: .none)
   }
 }
 
@@ -170,10 +152,10 @@ struct ToastActionModel {
           let label = map["label"] as? String else { return nil }
     self.actionId = actionId
     self.label = label
-    self.role = (map["role"] as? String).flatMap(ActionRole.init(rawValue:)) ?? .primary
+    self.role = map.enumValue("role", default: .primary)
     self.color = AdaptiveColor(map["color"])
-    self.dismissOnPress = ltBool(map["dismissOnPress"]) ?? true
-    self.loadingOnPress = ltBool(map["loadingOnPress"]) ?? false
+    self.dismissOnPress = map.bool("dismissOnPress", default: true)
+    self.loadingOnPress = map.bool("loadingOnPress", default: false)
   }
 }
 
@@ -217,23 +199,22 @@ struct ToastModel: Identifiable {
     if let typed = map["image"] as? FlutterStandardTypedData {
       self.image = UIImage(data: typed.data)
     }
-    self.semantic = (map["semantic"] as? String).flatMap(ToastSemantic.init(rawValue:)) ?? .none
+    self.semantic = map.enumValue("semantic", default: .none)
     self.style = ToastStyleModel(map["style"])
-    self.position = (map["position"] as? String).flatMap(ToastPositionModel.init(rawValue:)) ?? .topCenter
-    self.state = (map["state"] as? String).flatMap(ToastContentState.init(rawValue:)) ?? .static
-    self.persistent = ltBool(map["persistent"]) ?? false
-    self.durationMs = ltInt(map["durationMs"])
-    self.useDynamicIslandOrigin = ltBool(map["useDynamicIslandOrigin"]) ?? true
-    self.progress = ltDouble(map["progress"])
-    self.progressStyle = (map["progressStyle"] as? String)
-      .flatMap(ToastProgressStyle.init(rawValue:)) ?? .linear
+    self.position = map.enumValue("position", default: .topCenter)
+    self.state = map.enumValue("state", default: .static)
+    self.persistent = map.bool("persistent", default: false)
+    self.durationMs = map.int("durationMs")
+    self.useDynamicIslandOrigin = map.bool("useDynamicIslandOrigin", default: true)
+    self.progress = map.double("progress")
+    self.progressStyle = map.enumValue("progressStyle", default: .linear)
     self.groupKey = map["groupKey"] as? String
-    self.haptic = (map["haptic"] as? String).flatMap(ToastHapticKind.init(rawValue:)) ?? .none
+    self.haptic = map.enumValue("haptic", default: .none)
     self.semanticsLabel = map["semanticsLabel"] as? String
-    self.maxLines = ltInt(map["maxLines"]) ?? 1
-    self.titleMaxLines = ltInt(map["titleMaxLines"]) ?? 1
-    self.tapToDismiss = ltBool(map["tapToDismiss"]) ?? true
-    self.hasTap = ltBool(map["hasTap"]) ?? false
+    self.maxLines = map.int("maxLines") ?? 1
+    self.titleMaxLines = map.int("titleMaxLines") ?? 1
+    self.tapToDismiss = map.bool("tapToDismiss", default: true)
+    self.hasTap = map.bool("hasTap", default: false)
     self.action = ToastActionModel(map["action"])
   }
 

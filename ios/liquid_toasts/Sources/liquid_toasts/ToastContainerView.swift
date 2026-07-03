@@ -51,7 +51,7 @@ struct ToastContainerView: View {
         positionedList(position: group.position, toasts: group.toasts)
       }
     }
-    .animation(motion, value: manager.toasts.map(\.id))
+    .animation(motion, value: manager.stackGeneration)
     .onPreferenceChange(ToastFramePreferenceKey.self) { frames in
       manager.frames = frames
     }
@@ -63,29 +63,17 @@ struct ToastContainerView: View {
     let ordered = position.isBottom ? toasts : toasts.reversed()
     VStack(alignment: position.horizontalAlignment, spacing: 10) {
       ForEach(ordered, id: \.id) { toast in
-        EntranceView(
-          top: toast.position.isTop,
-          distance: max(16, manager.topSafeArea * 0.5)
-        ) {
-          ToastView(
-            toast: toast,
-            deviceWidth: hostWidth,
-            isActionLoading: manager.busyActionIds.contains(toast.id),
-            onTapBody: { manager.handleBodyTap(id: toast.id) },
-            onAction: { manager.handleAction(id: toast.id) },
-            onSwipe: { manager.handleSwipe(id: toast.id) },
-            onPressStart: { manager.pauseAutoDismiss(id: toast.id) },
-            onPressEnd: { manager.resumeAutoDismiss(id: toast.id) }
-          )
-          .background(
-            GeometryReader { geo in
-              Color.clear.preference(
-                key: ToastFramePreferenceKey.self,
-                value: [toast.id: geo.frame(in: .global)]
-              )
-            }
-          )
-        }
+        ToastRow(
+          toast: toast,
+          deviceWidth: hostWidth,
+          entranceDistance: max(16, manager.topSafeArea * 0.5),
+          onTapBody: { manager.handleBodyTap(id: toast.id) },
+          onAction: { manager.handleAction(id: toast.id) },
+          onSwipe: { manager.handleSwipe(id: toast.id) },
+          onPressStart: { manager.pauseAutoDismiss(id: toast.id) },
+          onPressEnd: { manager.resumeAutoDismiss(id: toast.id) }
+        )
+        .equatable()
         // Entrance is driven by EntranceView's onAppear so even the first toast
         // (before the container has a prior render) animates. Only removal uses
         // a SwiftUI transition.
@@ -102,9 +90,56 @@ struct ToastContainerView: View {
   }
 
   private var motion: Animation? {
-    reduceMotion
-      ? .easeInOut(duration: 0.2)
-      : .spring(response: 0.42, dampingFraction: 0.82)
+    reduceMotion ? .easeInOut(duration: 0.2) : ToastMetrics.stackSpring
+  }
+}
+
+// MARK: - Row
+
+/// One toast row (entrance wrapper + ToastView + frame reporter), equality-
+/// gated so a change to one toast doesn't re-render its siblings: with
+/// `.equatable()`, SwiftUI skips the body when `==` holds. Environment
+/// changes (color scheme, Reduce Motion) and internal `@State` correctly
+/// bypass the gate, and preferences keep propagating from skipped subtrees.
+private struct ToastRow: View, Equatable {
+  let toast: ToastModel
+  let deviceWidth: CGFloat
+  let entranceDistance: CGFloat
+  let onTapBody: () -> Void
+  let onAction: () -> Void
+  let onSwipe: () -> Void
+  let onPressStart: () -> Void
+  let onPressEnd: () -> Void
+
+  // Closures are excluded from equality: they capture only the singleton
+  // manager and toast.id, and id participates in toast equality — a row can
+  // never keep a stale closure for a different toast.
+  static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.toast == rhs.toast
+      && lhs.deviceWidth == rhs.deviceWidth
+      && lhs.entranceDistance == rhs.entranceDistance
+  }
+
+  var body: some View {
+    EntranceView(top: toast.position.isTop, distance: entranceDistance) {
+      ToastView(
+        toast: toast,
+        deviceWidth: deviceWidth,
+        onTapBody: onTapBody,
+        onAction: onAction,
+        onSwipe: onSwipe,
+        onPressStart: onPressStart,
+        onPressEnd: onPressEnd
+      )
+      .background(
+        GeometryReader { geo in
+          Color.clear.preference(
+            key: ToastFramePreferenceKey.self,
+            value: [toast.id: geo.frame(in: .global)]
+          )
+        }
+      )
+    }
   }
 }
 
@@ -138,7 +173,7 @@ private struct EntranceView<Content: View>: View {
         // Defer one runloop so the view renders in the offset state first, then
         // springs to identity (a same-transaction set would snap).
         DispatchQueue.main.async {
-          withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { shown = true }
+          withAnimation(ToastMetrics.stackSpring) { shown = true }
         }
       }
   }

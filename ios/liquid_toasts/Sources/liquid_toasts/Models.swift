@@ -2,23 +2,6 @@ import Flutter
 import SwiftUI
 import UIKit
 
-// MARK: - Number decoding helpers (StandardMessageCodec bridges ints/doubles/bools as NSNumber)
-
-@inline(__always) func ltInt(_ value: Any?) -> Int? {
-  if let n = value as? NSNumber { return n.intValue }
-  return value as? Int
-}
-
-@inline(__always) func ltDouble(_ value: Any?) -> Double? {
-  if let n = value as? NSNumber { return n.doubleValue }
-  return value as? Double
-}
-
-@inline(__always) func ltBool(_ value: Any?) -> Bool? {
-  if let n = value as? NSNumber { return n.boolValue }
-  return value as? Bool
-}
-
 // MARK: - Enums (raw values mirror the Dart `.name` wire format)
 
 enum ToastSemantic: String {
@@ -119,14 +102,14 @@ extension Color {
 
 /// A `{light, dark}` color pair decoded from the wire, resolved natively against
 /// the current color scheme.
-struct AdaptiveColor {
+struct AdaptiveColor: Equatable {
   let light: Color
   let dark: Color
 
   init?(_ value: Any?) {
     guard let map = value as? [String: Any],
-          let l = ltInt(map["light"]),
-          let d = ltInt(map["dark"]) else { return nil }
+          let l = map.int("light"),
+          let d = map.int("dark") else { return nil }
     light = Color(argb: l)
     dark = Color(argb: d)
   }
@@ -136,7 +119,7 @@ struct AdaptiveColor {
 
 // MARK: - Style / Action models
 
-struct ToastStyleModel {
+struct ToastStyleModel: Equatable {
   var tint: AdaptiveColor?
   var foreground: AdaptiveColor?
   var iconColor: AdaptiveColor?
@@ -149,14 +132,13 @@ struct ToastStyleModel {
     tint = AdaptiveColor(map["tint"])
     foreground = AdaptiveColor(map["foreground"])
     iconColor = AdaptiveColor(map["iconColor"])
-    glass = (map["glass"] as? String).flatMap(ToastGlassIntent.init(rawValue:))
-    if let cr = ltDouble(map["cornerRadius"]) { cornerRadius = CGFloat(cr) }
-    symbolEffect = (map["symbolEffect"] as? String)
-      .flatMap(ToastSymbolEffect.init(rawValue:)) ?? .none
+    glass = map.enumValue("glass")
+    cornerRadius = map.cgFloat("cornerRadius")
+    symbolEffect = map.enumValue("symbolEffect", default: .none)
   }
 }
 
-struct ToastActionModel {
+struct ToastActionModel: Equatable {
   let actionId: String
   let label: String
   let role: ActionRole
@@ -170,21 +152,39 @@ struct ToastActionModel {
           let label = map["label"] as? String else { return nil }
     self.actionId = actionId
     self.label = label
-    self.role = (map["role"] as? String).flatMap(ActionRole.init(rawValue:)) ?? .primary
+    self.role = map.enumValue("role", default: .primary)
     self.color = AdaptiveColor(map["color"])
-    self.dismissOnPress = ltBool(map["dismissOnPress"]) ?? true
-    self.loadingOnPress = ltBool(map["loadingOnPress"]) ?? false
+    self.dismissOnPress = map.bool("dismissOnPress", default: true)
+    self.loadingOnPress = map.bool("loadingOnPress", default: false)
   }
 }
 
 // MARK: - Toast model
 
-struct ToastModel: Identifiable {
+/// Reference-equality wrapper so [ToastModel] can synthesize `==` without
+/// ever comparing pixel data — a decoded image is immutable, so identity is
+/// the right equivalence.
+struct ToastImage: Equatable {
+  let uiImage: UIImage
+  static func == (lhs: ToastImage, rhs: ToastImage) -> Bool {
+    lhs.uiImage === rhs.uiImage
+  }
+}
+
+struct ToastModel: Identifiable, Equatable {
   let id: String
   var message: String
   var title: String?
   var icon: String?
-  var image: UIImage?
+
+  /// The decoded leading image. Arrives asynchronously (decode happens off the
+  /// main thread) — nil until then, and stays nil for toasts without one.
+  var image: ToastImage?
+
+  /// True when the wire payload carried image bytes. Reserves the avatar slot
+  /// from the first frame so the layout doesn't jump when the decoded pixels
+  /// land; the manager clears it if the decode fails (the slot then collapses).
+  var expectsImage: Bool
   var semantic: ToastSemantic
   var style: ToastStyleModel?
   var position: ToastPositionModel
@@ -203,8 +203,10 @@ struct ToastModel: Identifiable {
   var hasTap: Bool
   var action: ToastActionModel?
 
-  // Runtime-only
-  var deadline: Date?
+  /// Runtime-only, never decoded from the wire: true while the action's async
+  /// `onPressed` runs — the button shows a spinner. Lives on the model (like
+  /// `progress`) so flipping it re-renders only the affected row.
+  var isActionBusy = false
 
   init?(arguments: Any?) {
     guard let map = arguments as? [String: Any],
@@ -214,26 +216,25 @@ struct ToastModel: Identifiable {
     self.message = message
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String
-    if let typed = map["image"] as? FlutterStandardTypedData {
-      self.image = UIImage(data: typed.data)
-    }
-    self.semantic = (map["semantic"] as? String).flatMap(ToastSemantic.init(rawValue:)) ?? .none
+    // Image bytes are NOT decoded here — the manager decodes them off the main
+    // thread and attaches the pixels when ready (see ToastImageDecoder).
+    self.expectsImage = map["image"] is FlutterStandardTypedData
+    self.semantic = map.enumValue("semantic", default: .none)
     self.style = ToastStyleModel(map["style"])
-    self.position = (map["position"] as? String).flatMap(ToastPositionModel.init(rawValue:)) ?? .topCenter
-    self.state = (map["state"] as? String).flatMap(ToastContentState.init(rawValue:)) ?? .static
-    self.persistent = ltBool(map["persistent"]) ?? false
-    self.durationMs = ltInt(map["durationMs"])
-    self.useDynamicIslandOrigin = ltBool(map["useDynamicIslandOrigin"]) ?? true
-    self.progress = ltDouble(map["progress"])
-    self.progressStyle = (map["progressStyle"] as? String)
-      .flatMap(ToastProgressStyle.init(rawValue:)) ?? .linear
+    self.position = map.enumValue("position", default: .topCenter)
+    self.state = map.enumValue("state", default: .static)
+    self.persistent = map.bool("persistent", default: false)
+    self.durationMs = map.int("durationMs")
+    self.useDynamicIslandOrigin = map.bool("useDynamicIslandOrigin", default: true)
+    self.progress = map.double("progress")
+    self.progressStyle = map.enumValue("progressStyle", default: .linear)
     self.groupKey = map["groupKey"] as? String
-    self.haptic = (map["haptic"] as? String).flatMap(ToastHapticKind.init(rawValue:)) ?? .none
+    self.haptic = map.enumValue("haptic", default: .none)
     self.semanticsLabel = map["semanticsLabel"] as? String
-    self.maxLines = ltInt(map["maxLines"]) ?? 1
-    self.titleMaxLines = ltInt(map["titleMaxLines"]) ?? 1
-    self.tapToDismiss = ltBool(map["tapToDismiss"]) ?? true
-    self.hasTap = ltBool(map["hasTap"]) ?? false
+    self.maxLines = map.int("maxLines") ?? 1
+    self.titleMaxLines = map.int("titleMaxLines") ?? 1
+    self.tapToDismiss = map.bool("tapToDismiss", default: true)
+    self.hasTap = map.bool("hasTap", default: false)
     self.action = ToastActionModel(map["action"])
   }
 
@@ -244,6 +245,7 @@ struct ToastModel: Identifiable {
     title = other.title
     icon = other.icon
     image = other.image
+    expectsImage = other.expectsImage
     semantic = other.semantic
     style = other.style
     position = other.position
@@ -259,12 +261,32 @@ struct ToastModel: Identifiable {
     tapToDismiss = other.tapToDismiss
     hasTap = other.hasTap
     action = other.action
+    // A morph supersedes any in-flight action spinner.
+    isActionBusy = false
   }
 
   /// The SF Symbol to render: explicit icon wins, else the semantic default.
   var resolvedSymbol: String? {
     if let icon = icon, !icon.isEmpty { return icon }
     return semantic.defaultSymbol
+  }
+
+  // MARK: Leading-slot flags (single source for the content row AND the
+  // measurement probes, so their layouts can't disagree)
+
+  /// Whether a leading glyph (spinner or SF Symbol) renders. When false the
+  /// icon is dropped from the row entirely — slot and spacing — so a text-only
+  /// toast hugs its leading padding instead of reserving an empty icon box.
+  var showsIcon: Bool { state == .loading || resolvedSymbol != nil }
+
+  /// A determinate circular progress ring renders in place of the leading icon.
+  var showsCircularProgress: Bool { progress != nil && progressStyle == .circular }
+
+  /// Whether anything occupies the leading slot (image / ring / spinner / icon).
+  /// Keys off [expectsImage] (not just decoded pixels) so the slot is stable
+  /// from the first frame while the async decode runs.
+  var showsLeadingSlot: Bool {
+    expectsImage || image != nil || showsCircularProgress || showsIcon
   }
 
   /// Auto-dismiss interval, or nil when persistent / loading.

@@ -21,7 +21,7 @@ const _hold = Duration(milliseconds: 1600);
 
 // Long title that wraps to 2 lines, in a roomy multiline toast.
 Future<void> _summary() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: 'Your weekly activity summary is ready to review',
     message: 'See the highlights across all of your projects from the past week.',
     icon: 'chart.bar.fill',
@@ -34,7 +34,7 @@ Future<void> _summary() async {
 
 // Two-line title above a wrapping message.
 Future<void> _comment() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: 'Sarah Chen commented on your latest design proposal',
     message: '“Love the new direction — let’s ship it.” Tap to jump into the thread.',
     icon: 'bubble.left.fill',
@@ -47,7 +47,7 @@ Future<void> _comment() async {
 
 // Two-line title in a compact (single-line message) toast.
 Future<void> _reminder() async {
-  LiquidToasts.show(const Toast(
+  toast.raw(const Toast(
     title: 'Reminder: your team standup starts in five minutes',
     message: 'Tap to join',
     icon: 'calendar',

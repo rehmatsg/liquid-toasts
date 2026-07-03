@@ -63,7 +63,7 @@ Future<Uint8List> _avatar(String initials, List<Color> colors) async {
 
 Future<void> _message() async {
   final bytes = await _avatar('AR', const [Color(0xFF7C3AED), Color(0xFF4F46E5)]);
-  LiquidToasts.show(Toast(
+  toast.raw(Toast(
     message: 'Alex Rivera sent you a message',
     leadingImage: MemoryImage(bytes),
     duration: const Duration(milliseconds: 3600),
@@ -73,7 +73,7 @@ Future<void> _message() async {
 
 Future<void> _mention() async {
   final bytes = await _avatar('SC', const [Color(0xFFEA580C), Color(0xFFDB2777)]);
-  LiquidToasts.show(Toast(
+  toast.raw(Toast(
     title: 'Sam Chen',
     message: 'mentioned you in #design-review',
     leadingImage: MemoryImage(bytes),
@@ -84,7 +84,7 @@ Future<void> _mention() async {
 
 Future<void> _photos() async {
   final bytes = await _avatar('M', const [Color(0xFF0F766E), Color(0xFF0EA5E9)]);
-  LiquidToasts.show(Toast(
+  toast.raw(Toast(
     message: 'Maya shared 3 photos with you',
     leadingImage: MemoryImage(bytes),
     duration: const Duration(milliseconds: 3600),

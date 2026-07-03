@@ -29,7 +29,7 @@ const _hold = Duration(milliseconds: 1700);
 
 // 1. Multiline, no action — a long status message with a leading icon.
 Future<void> _plainBackup() async {
-  LiquidToasts.show(
+  toast.raw(
     const Toast(
       message: 'Backing up your photos to iCloud. This may take a few minutes '
           'while you stay on Wi-Fi.',
@@ -43,7 +43,7 @@ Future<void> _plainBackup() async {
 
 // 2. Multiline, no action — bold title above a wrapping message.
 Future<void> _titledUpdate() async {
-  LiquidToasts.show(
+  toast.raw(
     const Toast(
       title: 'Update installed',
       message: 'Liquid Toasts now lays out long messages on multiple lines for '
@@ -59,7 +59,7 @@ Future<void> _titledUpdate() async {
 
 // 3. Multiline, with action — an archive flow with an inline Undo.
 Future<void> _actionArchive() async {
-  final handle = await LiquidToasts.show(
+  final handle = toast.raw(
     Toast(
       message: 'Your conversation with Alex was moved to Archive. You can find '
           'it anytime in archived chats.',
@@ -80,7 +80,7 @@ Future<void> _actionArchive() async {
 
 // 4. Multiline, with action — a call-to-action "Update" button.
 Future<void> _actionSoftware() async {
-  final handle = await LiquidToasts.show(
+  final handle = toast.raw(
     Toast(
       message: 'A new software update is available. It includes important '
           'security fixes and performance improvements.',

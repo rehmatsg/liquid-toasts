@@ -115,7 +115,7 @@ class _DemoReelStageState extends State<_DemoReelStage> {
   }
 
   Future<void> _clean() async {
-    await LiquidToasts.dismissAll();
+    await toast.dismissAll();
     await Future<void>.delayed(widget.gap);
   }
 

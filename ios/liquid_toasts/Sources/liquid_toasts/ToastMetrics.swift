@@ -7,13 +7,21 @@ import SwiftUI
 enum ToastMetrics {
   // MARK: Row insets (multiline gets roomier insets than the hugging capsule)
 
-  static func leadingPadding(multiline: Bool) -> CGFloat { multiline ? 18 : 16 }
+  private static func baseHorizontalPadding(multiline: Bool) -> CGFloat { multiline ? 18 : 16 }
   static func verticalPadding(multiline: Bool) -> CGFloat { multiline ? 14 : 11 }
 
+  /// Leading inset. When a leading icon/avatar is present, it matches the
+  /// vertical inset so the glyph sits in an evenly-padded slot (equal left/
+  /// top/bottom margins) rather than a wider gap on the left than above/below.
+  static func leadingPadding(multiline: Bool, hasLeadingSlot: Bool) -> CGFloat {
+    hasLeadingSlot ? verticalPadding(multiline: multiline) : baseHorizontalPadding(multiline: multiline)
+  }
+
   /// Trailing inset. With an action present it matches the (tighter) button
-  /// margin; otherwise it mirrors the leading inset.
+  /// margin; otherwise it mirrors the base horizontal inset (independent of
+  /// the leading slot, so the text-side edge stays symmetric).
   static func trailingPadding(multiline: Bool, hasAction: Bool) -> CGFloat {
-    hasAction ? 11 : leadingPadding(multiline: multiline)
+    hasAction ? 11 : baseHorizontalPadding(multiline: multiline)
   }
 
   /// Spacing between the icon, the text column, and the action.

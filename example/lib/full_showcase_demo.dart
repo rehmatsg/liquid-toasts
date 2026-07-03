@@ -119,6 +119,7 @@ Future<void> _progressCircular() async {
   t.update(
     message: 'Upload complete',
     semantic: ToastSemantic.success,
+    progress: 1.0,
     duration: const Duration(milliseconds: 2400),
   );
   await _wait(2400 + 1500);
@@ -140,6 +141,7 @@ Future<void> _progressLinear() async {
   t.update(
     message: 'Download complete',
     semantic: ToastSemantic.success,
+    progress: 1.0,
     duration: const Duration(milliseconds: 2400),
   );
   await _wait(2400 + 1500);

@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
 
@@ -30,20 +33,229 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _replaceCount = 0;
 
-  void _animatedIcon(ToastSymbolEffect effect, String icon, String label) {
-    toast.raw(Toast(
-      message: label,
-      icon: icon,
-      style: ToastStyleOverride(symbolEffect: effect),
-      duration: const Duration(seconds: 3),
-    ));
-  }
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
-  Future<String> _fakeWork({bool fail = false}) async {
-    await Future<void>.delayed(const Duration(milliseconds: 1800));
+  /// A pretend async unit of work that succeeds after [ms] or throws.
+  Future<String> _fakeWork({int ms = 2500, bool fail = false}) async {
+    await Future<void>.delayed(Duration(milliseconds: ms));
     if (fail) throw Exception('Network unreachable');
     return 'OK';
   }
+
+  /// Draws a square gradient tile with centered initials and returns PNG bytes.
+  /// The native side clips it to a circle, so the square fills the avatar.
+  Future<Uint8List> _avatar(String initials, List<Color> colors) async {
+    const size = 120.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const rect = Rect.fromLTWH(0, 0, size, size);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ).createShader(rect),
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+        text: initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 52,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset((size - tp.width) / 2, (size - tp.height) / 2));
+    final image =
+        await recorder.endRecording().toImage(size.toInt(), size.toInt());
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Toast triggers
+  // ---------------------------------------------------------------------------
+
+  void _titledMessage() {
+    toast.success(
+      'Your changes have been published and are now live.',
+      title: 'Published',
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  void _multiline() {
+    toast.error(
+      'We couldn’t reach the server. Check your connection and try again in a '
+      'few moments — your work has been saved locally.',
+      title: 'Sync failed',
+      maxLines: 3,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  void _customIcon() {
+    toast(
+      'You have 3 new notifications',
+      icon: 'bell.fill',
+      style: const ToastStyleOverride(symbolEffect: ToastSymbolEffect.bounce),
+    );
+  }
+
+  void _sparklesIcon() {
+    toast(
+      'Magic applied ✨',
+      icon: 'sparkles',
+      style: const ToastStyleOverride(symbolEffect: ToastSymbolEffect.pulse),
+    );
+  }
+
+  void _undoAction() {
+    toast(
+      'Conversation archived',
+      icon: 'archivebox.fill',
+      duration: const Duration(seconds: 5),
+      action: ToastAction(
+        label: 'Undo',
+        role: ToastActionRole.primary,
+        // dismissOnPress defaults to true — tapping removes the toast.
+        onPressed: () => toast.info('Restored to Inbox'),
+      ),
+    );
+  }
+
+  void _asyncAction() {
+    toast.raw(Toast(
+      message: 'Save changes to your profile?',
+      icon: 'square.and.pencil',
+      duration: null,
+      action: ToastAction(
+        label: 'Save',
+        role: ToastActionRole.success,
+        loadingOnPress: true, // spinner until onPressed resolves, then dismiss
+        onPressed: () => _fakeWork(ms: 2000),
+      ),
+    ));
+  }
+
+  Future<void> _promiseSuccess() async {
+    await toast.promise<String>(
+      _fakeWork(),
+      loading: 'Syncing your library…',
+      success: 'Library synced',
+    );
+  }
+
+  Future<void> _promiseError() async {
+    try {
+      await toast.promise<String>(
+        _fakeWork(fail: true),
+        loading: 'Uploading…',
+        error: 'Upload failed',
+      );
+    } catch (_) {
+      // The failure is surfaced by the toast; swallow the rethrow here.
+    }
+  }
+
+  Future<void> _progressLinear() async {
+    final handle = toast.raw(const Toast(
+      title: 'Downloading',
+      message: 'season-2.zip',
+      icon: 'arrow.down.circle',
+      duration: null,
+      progress: 0,
+    ));
+    for (var p = 1; p <= 10; p++) {
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      await handle.update(progress: p / 10);
+    }
+    await handle.replace(const Toast(
+      message: 'Download complete',
+      icon: 'checkmark.circle.fill',
+      semantic: ToastSemantic.success,
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  Future<void> _progressCircular() async {
+    final handle = toast.raw(const Toast(
+      message: 'Downloading update',
+      duration: null,
+      progress: 0,
+      progressStyle: ToastProgressStyle.circular,
+    ));
+    for (var p = 1; p <= 10; p++) {
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      await handle.update(progress: p / 10);
+    }
+    await handle.replace(const Toast(
+      message: 'Up to date',
+      icon: 'checkmark.circle.fill',
+      semantic: ToastSemantic.success,
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  void _atPosition(ToastPosition position, String label) {
+    toast(
+      label,
+      icon: 'location.fill',
+      position: position,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  Future<void> _stackThree() async {
+    for (var i = 1; i <= 3; i++) {
+      toast.info(
+        'Notification #$i',
+        position: ToastPosition.bottomCenter,
+        duration: const Duration(seconds: 3),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+    }
+  }
+
+  void _groupKeyReplace() {
+    _replaceCount++;
+    toast.info(
+      'Tapped $_replaceCount time(s)',
+      icon: 'hand.tap.fill',
+      groupKey: 'counter',
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  void _persistent() {
+    toast.raw(const Toast(
+      title: 'Connecting…',
+      message: 'Waiting for the network',
+      icon: 'wifi',
+      duration: null, // persistent — clear it with "Dismiss all"
+    ));
+  }
+
+  Future<void> _avatarToast() async {
+    final bytes =
+        await _avatar('AR', const [Color(0xFF7C3AED), Color(0xFF4F46E5)]);
+    toast.raw(Toast(
+      title: 'Alex Rivera',
+      message: 'sent you a message',
+      leadingImage: MemoryImage(bytes),
+      duration: const Duration(seconds: 4),
+    ));
+  }
+
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -52,124 +264,38 @@ class _HomePageState extends State<HomePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
-          const _Section('Semantic'),
+          const _Section('Semantics'),
+          _Btn('Plain', () => toast('Copied to clipboard')),
           _Btn('Success', () => toast.success('Saved to favorites')),
           _Btn('Error', () => toast.error('Could not connect')),
           _Btn('Warning', () => toast.warning('Low storage')),
           _Btn('Info', () => toast.info('3 updates available')),
-          const _Section('Action button'),
-          _Btn('Warning + action', () {
-            toast.warning(
-              'Low storage',
-              duration: null,
-              action: ToastAction(
-                label: 'Manage',
-                role: ToastActionRole.primary,
-                onPressed: () => toast.info('Opening settings…'),
-              ),
-            );
-          }),
-          _Btn('Error + destructive retry', () {
-            toast.error(
-              'Upload failed',
-              duration: null,
-              action: ToastAction(
-                label: 'Retry',
-                role: ToastActionRole.destructive,
-                onPressed: () => toast.success('Retrying…'),
-              ),
-            );
-          }),
-          const _Section('Loading lifecycle'),
-          _Btn('Loading → success', () async {
-            await toast.promise<String>(
-              _fakeWork(),
-              loading: 'Syncing…',
-              success: 'Synced',
-            );
-          }),
-          _Btn('Loading → error', () async {
-            try {
-              await toast.promise<String>(
-                _fakeWork(fail: true),
-                loading: 'Uploading…',
-                error: 'Upload failed',
-              );
-            } catch (_) {/* handled by the toast */}
-          }),
-          const _Section('Positioning & stacking'),
-          _Btn('Bottom toast', () {
-            toast.raw(const Toast(
-              message: 'Copied link',
-              icon: 'link',
-              position: ToastPosition.bottomCenter,
-            ));
-          }),
-          _Btn('Stack 4 quickly', () async {
-            for (var i = 1; i <= 4; i++) {
-              toast.info('Notification #$i');
-              await Future<void>.delayed(const Duration(milliseconds: 220));
-            }
-          }),
-          const _Section('Persistent, replace & progress'),
-          _Btn('Persistent + dismiss via handle', () async {
-            final handle = toast.raw(const Toast(
-              message: 'Connecting…',
-              icon: 'wifi',
-              duration: null,
-            ));
-            await Future<void>.delayed(const Duration(seconds: 2));
-            await handle.replace(
-                Toast.success(message: 'Connected', duration: null));
-            await Future<void>.delayed(const Duration(seconds: 1));
-            await handle.dismiss();
-          }),
-          _Btn('Replace-by-key (tap repeatedly)', () {
-            _replaceCount++;
-            toast.info(
-              'Tapped $_replaceCount time(s)',
-              groupKey: 'counter',
-              duration: null,
-            );
-          }),
-          _Btn('Progress upload', _runProgress),
-          const _Section('Animated icons'),
-          _Btn('Bounce', () => _animatedIcon(ToastSymbolEffect.bounce, 'bell.fill', 'Bounce')),
-          _Btn('Pulse', () => _animatedIcon(ToastSymbolEffect.pulse, 'heart.fill', 'Pulse')),
-          _Btn('Rotate', () => _animatedIcon(ToastSymbolEffect.rotate, 'arrow.triangle.2.circlepath', 'Rotate')),
-          _Btn('Variable color', () => _animatedIcon(ToastSymbolEffect.variableColor, 'wifi', 'Variable color')),
-          _Btn('Draw on (iOS 26)', () => _animatedIcon(ToastSymbolEffect.drawOn, 'checkmark.seal', 'Draw on')),
+          const _Section('Content'),
+          _Btn('Title + message', _titledMessage),
+          _Btn('Long multiline (maxLines 3)', _multiline),
+          _Btn('Custom icon — bell.fill', _customIcon),
+          _Btn('Custom icon — sparkles', _sparklesIcon),
+          _Btn('Avatar image', _avatarToast),
+          const _Section('Actions'),
+          _Btn('Undo (dismiss on press)', _undoAction),
+          _Btn('Async action (loading on press)', _asyncAction),
+          const _Section('Loading / promise'),
+          _Btn('Promise → success', _promiseSuccess),
+          _Btn('Promise → error', _promiseError),
+          const _Section('Progress'),
+          _Btn('Linear download', _progressLinear),
+          _Btn('Circular download', _progressCircular),
+          const _Section('Positions'),
+          _PositionGrid(onPick: _atPosition),
+          const _Section('Stacking & replace'),
+          _Btn('Show 3 stacked (bottom)', _stackThree),
+          _Btn('groupKey replace (tap repeatedly)', _groupKeyReplace),
+          _Btn('Persistent toast', _persistent),
           const _Section('Bulk'),
           _Btn('Dismiss all', () => toast.dismissAll()),
         ],
       ),
     );
-  }
-
-  Future<void> _runProgress() async {
-    final handle = toast.raw(const Toast(
-      message: 'Uploading 0%',
-      icon: 'arrow.up.circle',
-      duration: null,
-      progress: 0,
-    ));
-    for (var p = 1; p <= 10; p++) {
-      await Future<void>.delayed(const Duration(milliseconds: 240));
-      await handle.replace(Toast(
-        message: 'Uploading ${p * 10}%',
-        icon: 'arrow.up.circle',
-        duration: null,
-        progress: p / 10,
-      ));
-    }
-    // Keep `progress` set so the toast height stays identical at completion.
-    await handle.replace(const Toast(
-      message: 'Upload complete',
-      icon: 'checkmark.circle.fill',
-      semantic: ToastSemantic.success,
-      duration: Duration(seconds: 2),
-      progress: 1,
-    ));
   }
 }
 
@@ -209,6 +335,50 @@ class _Btn extends StatelessWidget {
           child: Text(label),
         ),
       ),
+    );
+  }
+}
+
+/// A compact 3x3 grid mirroring the [ToastPosition] anchors on screen.
+class _PositionGrid extends StatelessWidget {
+  const _PositionGrid({required this.onPick});
+
+  final void Function(ToastPosition position, String label) onPick;
+
+  static const _cells = <(ToastPosition?, String)>[
+    (ToastPosition.topLeading, 'Top\nleading'),
+    (ToastPosition.topCenter, 'Top\ncenter'),
+    (ToastPosition.topTrailing, 'Top\ntrailing'),
+    (null, ''),
+    (ToastPosition.center, 'Center'),
+    (null, ''),
+    (ToastPosition.bottomLeading, 'Bottom\nleading'),
+    (ToastPosition.bottomCenter, 'Bottom\ncenter'),
+    (ToastPosition.bottomTrailing, 'Bottom\ntrailing'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.6,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      children: [
+        for (final (position, label) in _cells)
+          if (position == null)
+            const SizedBox.shrink()
+          else
+            OutlinedButton(
+              onPressed: () => onPick(position, label.replaceAll('\n', ' ')),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+              ),
+              child: Text(label, textAlign: TextAlign.center),
+            ),
+      ],
     );
   }
 }

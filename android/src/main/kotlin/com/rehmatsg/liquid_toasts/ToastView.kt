@@ -149,6 +149,7 @@ internal fun ToastView(
             cornerRadiusDp = cornerRadius,
             isDark = isDark,
             modifier = Modifier.matchParentSize(),
+            backgroundArgb = toast.style?.background?.resolve(isDark),
         )
         ToastContent(
             toast = toast,

@@ -91,7 +91,7 @@ as a raised card that never becomes unreadable over busy content.
 
 ```yaml
 dependencies:
-  liquid_toasts: ^0.4.0
+  liquid_toasts: ^0.5.0
 ```
 
 ## Usage
@@ -164,6 +164,28 @@ t.update(progress: 0.6);
 t.update(progress: 1.0, message: 'Uploaded', duration: const Duration(seconds: 2));
 ```
 
+### Custom colors
+
+```dart
+// Color the surface. iOS 26+ tints the glass (pass reduced alpha for subtlety);
+// elsewhere (iOS 17–25 frosted, Reduce Transparency, Android) it fills the surface.
+toast.show(
+  'Saved to Library',
+  style: const ToastStyleOverride(background: ToastColor(Color(0xFF1E1E2E))),
+);
+
+// Hex strings work too. Leave `foreground` null and a readable text color
+// (near-black/near-white, per light/dark) is derived automatically by contrast.
+toast.show(
+  'Copied',
+  style: ToastStyleOverride(background: ToastColor.hex('#b0afb0')),
+);
+```
+
+`tint` colors the accent (icon / spinner / progress ring); `background` colors
+the surface; `foreground` overrides the (otherwise auto-derived) text color.
+Each is a `ToastColor(light, dark:)` and resolves adaptively — no `BuildContext`.
+
 ### App-wide defaults
 
 ```dart
@@ -187,7 +209,7 @@ toast.setDefaults(const LiquidToastsConfig(
 | `Toast` | Immutable content (message, title, SF Symbol icon, semantic, style, position, duration, action, progress, haptic, …) with named constructors and `copyWith` |
 | `ToastAction` | Single action button (`label`, `onPressed`, `role`, `color`) |
 | `ToastHandle` | Live controller: patch-style `update(...)`, `replace(Toast)`, `dismiss`, `onDismissed` |
-| `ToastStyleOverride` / `ToastColor` | Per-toast tint/foreground/glass overrides (adaptive light/dark) |
+| `ToastStyleOverride` / `ToastColor` | Per-toast `background` (surface) / `tint` (accent) / `foreground` (text, auto-derived from background) / `iconColor` / `glass` / `cornerRadius` overrides (adaptive light/dark; `ToastColor.hex(...)` for hex) |
 | `LiquidToasts` / `LoadingToast` | **Deprecated** legacy facade — working delegates until 1.0 |
 
 ## Migrating from `LiquidToasts`

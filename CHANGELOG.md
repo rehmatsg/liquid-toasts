@@ -1,3 +1,25 @@
+## 0.5.0
+
+**Custom surface color.** New `ToastStyleOverride.background` colors the toast
+surface, with automatic contrast-aware text.
+
+* **`background`** — a `ToastColor` for the surface. On iOS 26+ it tints the
+  Liquid Glass (a translucent wash over the live refraction — pass a reduced
+  alpha for subtlety); on the iOS 17–25 frosted tier, under Reduce Transparency,
+  and on Android it fills the opaque surface. Null keeps the neutral adaptive
+  default. `tint` now strictly means the *accent* (icon/spinner/ring) and never
+  touches the surface.
+* **Automatic foreground** — when `background` is set and `foreground` is left
+  null, a readable text color (near-black or near-white, chosen per light/dark
+  by WCAG contrast) is derived automatically. An explicit `foreground` always
+  wins. Title renders at full strength, the message at 85% — hierarchy by weight
+  + opacity, unchanged. A neutral (`semantic: none`) icon adopts the same
+  on-color; a semantic toast keeps its role-colored glyph.
+* **`ToastColor.hex()`** — construct colors from hex strings
+  (`ToastColor.hex('#b0afb0')`, `ToastColor.hex('#2196F3', dark: '#0D47A1')`);
+  `#RRGGBB` and `#AARRGGBB` (with or without `#`/`0x`) are accepted.
+* Additive wire change (new optional `background` key); no protocol bump.
+
 ## 0.4.0
 
 **Android support.** The plugin now renders natively on Android too, with full

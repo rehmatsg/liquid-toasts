@@ -204,6 +204,7 @@ internal data class AdaptiveColor(val light: Int, val dark: Int) {
 /** Per-toast visual override (`ToastStyleOverride` in Dart). */
 internal data class ToastStyleModel(
     val tint: AdaptiveColor?,
+    val background: AdaptiveColor?,
     val foreground: AdaptiveColor?,
     val iconColor: AdaptiveColor?,
     val glass: ToastGlassIntent?,
@@ -216,6 +217,7 @@ internal data class ToastStyleModel(
             val map = value as? Map<String, Any?> ?: return null
             return ToastStyleModel(
                 tint = AdaptiveColor.fromWire(map["tint"]),
+                background = AdaptiveColor.fromWire(map["background"]),
                 foreground = AdaptiveColor.fromWire(map["foreground"]),
                 iconColor = AdaptiveColor.fromWire(map["iconColor"]),
                 glass = ToastGlassIntent.fromWireOrNull(map, "glass"),

@@ -79,7 +79,7 @@ struct ToastView: View {
       // Multiline pins to the (capped) near-full width; single-line hugs content
       // — both concrete widths so a morph across the boundary animates.
       .modifier(ToastWidthModifier(width: resolvedWidth))
-      .background { GlassBackground(shape: shape) }
+      .background { GlassBackground(shape: shape, surfaceTint: toast.style?.background?.resolved(scheme)) }
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
       .contentShape(shape)
       .background(ToastMeasurementProbes(inputs: measurementInputs).equatable())

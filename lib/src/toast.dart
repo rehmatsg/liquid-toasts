@@ -461,7 +461,7 @@ class Toast {
         if (icon != null) 'icon': icon,
         'image': ?imageBytes,
         'semantic': semantic.name,
-        if (style != null) 'style': style!.toMap(),
+        if (style != null) 'style': style!.toMap(semantic: semantic),
         'position': (position ?? ToastPosition.topCenter).name,
         'state': loading ? 'loading' : 'static',
         'persistent': isPersistent,

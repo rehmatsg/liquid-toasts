@@ -17,10 +17,11 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The surface behind a toast. Deliberately **opaque** on Android — there is no
- * Liquid Glass and no blur-behind; the fill mirrors iOS
+ * Liquid Glass and no blur-behind; the default fill mirrors iOS
  * `GlassBackground.swift`'s Reduce-Transparency fallback (dark `0xFF242424` /
  * light `0xFFFAFAFA`), topped by the same 0.5dp white hairline stroke so the
- * surface still reads as a raised material.
+ * surface still reads as a raised material. A caller-supplied [backgroundArgb]
+ * (`ToastStyleOverride.background`) replaces that neutral fill.
  *
  * The shadow uses `Modifier.shadow(elevation)`, which approximates the iOS
  * `.shadow(radius:16,y:8)` — Compose elevation shadows are ambient+key, not a
@@ -32,15 +33,17 @@ internal fun ToastSurface(
     cornerRadiusDp: Float,
     isDark: Boolean,
     modifier: Modifier = Modifier,
+    backgroundArgb: Int? = null,
 ) {
     val shape = RoundedCornerShape(cornerRadiusDp.dp)
+    val fill = backgroundArgb?.let { Color(it) } ?: if (isDark) Color(0xFF242424) else Color(0xFFFAFAFA)
     // Shadow first (drawn outside the clip), then the clipped surface fill.
     val base = modifier
         .shadow(elevation = 16.dp, shape = shape, clip = false)
         .clip(shape)
 
     Canvas(base.fillMaxSize()) {
-        drawRect(if (isDark) Color(0xFF242424) else Color(0xFFFAFAFA))
+        drawRect(fill)
         drawHairline(isDark, cornerRadiusDp)
     }
 }

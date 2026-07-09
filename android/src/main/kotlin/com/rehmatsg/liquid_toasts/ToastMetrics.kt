@@ -27,14 +27,16 @@ internal object ToastMetrics {
 
     /**
      * Leading inset for the icon/avatar slot. A plain single-line toast pins the
-     * glyph snugly (matching the vertical inset). But when the row is tall — a
-     * multiline toast, or one with an action button (taller than the glyph) — the
-     * centered glyph would sit closer to the left edge than to the top/bottom, so
-     * it gets a roomier inset.
+     * glyph snugly (matching the vertical inset). But when the row is *tall* —
+     * more than one content line — the centered glyph would sit closer to the
+     * left edge than to the top/bottom, so it gets a roomier inset. A row is tall
+     * when [tallRow] is set: a multiline (wrapped) message, a title above a
+     * message (two lines), or an action button (taller than the glyph). The
+     * caller computes it so the live view and the measurement pass agree.
      */
-    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean, hasAction: Boolean): Float =
+    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean, tallRow: Boolean): Float =
         if (!hasLeadingSlot) baseHorizontalPadding(multiline)
-        else if (multiline || hasAction) TALL_ROW_LEADING_PADDING
+        else if (tallRow) TALL_ROW_LEADING_PADDING
         else verticalPadding(multiline)
 
     /**

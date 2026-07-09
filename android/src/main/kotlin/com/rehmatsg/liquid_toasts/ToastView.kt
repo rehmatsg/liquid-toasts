@@ -99,8 +99,13 @@ internal fun ToastView(
         label = "toastWidth",
     )
 
+    // Shape is decided on the *total* text (title + message), not the message
+    // alone: a capsule for a single line, a rounded rectangle for more than one
+    // (a wrapped message, or a title above a message).
+    val hasMultipleTextLines = isMultiline ||
+        (!toast.title.isNullOrEmpty() && toast.message.isNotEmpty())
     val cornerRadius = toast.style?.cornerRadius?.toFloat()
-        ?: if (isMultiline) ToastMetrics.MULTILINE_CORNER_RADIUS else ToastMetrics.CAPSULE_CORNER_RADIUS
+        ?: if (hasMultipleTextLines) ToastMetrics.MULTILINE_CORNER_RADIUS else ToastMetrics.CAPSULE_CORNER_RADIUS
 
     // Drag offset (px), an Animatable so a cancelled drag springs back to rest.
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -261,7 +266,8 @@ private fun measure(
 
     // Multiline reference width (px): the space the message actually gets in the
     // multiline layout — subtract the insets, glyph slot, and action estimate.
-    val leading = ToastMetrics.leadingPadding(true, showsLeading, hasAction)
+    // Multiline hypothesis: the message wraps, so the row is always tall.
+    val leading = ToastMetrics.leadingPadding(true, showsLeading, tallRow = true)
     val trailing = ToastMetrics.trailingPadding(true, hasAction)
     val spacing = ToastMetrics.rowSpacing(true)
     val glyph = if (showsLeading) ToastMetrics.ICON_SLOT + spacing else 0f
@@ -289,7 +295,13 @@ private fun measure(
 
     // Natural hugging width (single-line row): insets + glyph slot + max(title,
     // message) single-line width + action, capped by the text column max.
-    val leadS = ToastMetrics.leadingPadding(false, showsLeading, hasAction)
+    // Single-line hypothesis: tall when an action button or a title above the
+    // message adds a second line.
+    val leadS = ToastMetrics.leadingPadding(
+        false,
+        showsLeading,
+        tallRow = hasAction || (!title.isNullOrEmpty() && message.isNotEmpty()),
+    )
     val trailS = ToastMetrics.trailingPadding(false, hasAction)
     val spacingS = ToastMetrics.rowSpacing(false)
     val glyphS = if (showsLeading) ToastMetrics.ICON_SLOT + spacingS else 0f

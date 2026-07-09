@@ -16,12 +16,15 @@ enum ToastMetrics {
 
   /// Leading inset for the icon/avatar slot. A plain single-line toast pins the
   /// glyph snugly (matching the vertical inset), so left/top/bottom read even.
-  /// But when the row is tall — a multiline toast, or one with an action button
-  /// (whose height exceeds the glyph) — the centered glyph would otherwise sit
-  /// closer to the left edge than to the top/bottom, so it gets a roomier inset.
-  static func leadingPadding(multiline: Bool, hasLeadingSlot: Bool, hasAction: Bool) -> CGFloat {
+  /// But when the row is *tall* — more than one content line — the vertically
+  /// centered glyph would sit closer to the left edge than to the top/bottom, so
+  /// it gets a roomier inset. A row is tall when [tallRow] is set: a multiline
+  /// (wrapped) message, a title above a message (two lines), or an action button
+  /// (taller than the glyph). Computed by the caller so the live view and the
+  /// off-screen probes agree.
+  static func leadingPadding(multiline: Bool, hasLeadingSlot: Bool, tallRow: Bool) -> CGFloat {
     guard hasLeadingSlot else { return baseHorizontalPadding(multiline: multiline) }
-    return (multiline || hasAction) ? tallRowLeadingPadding : verticalPadding(multiline: multiline)
+    return tallRow ? tallRowLeadingPadding : verticalPadding(multiline: multiline)
   }
 
   /// Trailing inset. With an action present it matches the (tighter) button

@@ -3,13 +3,15 @@ import UIKit
 
 /// Adaptive glass surface for a toast.
 ///
-/// - iOS 26+: native Liquid Glass via `glassEffect`. By default the surface
-///   stays **neutral** (a subtle dark/light tint for notification legibility)
-///   so it refracts the app cleanly. A caller-supplied `surfaceTint`
-///   (`ToastStyleOverride.background`) colors the glass instead — a translucent
-///   wash over the live refraction. A fully-opaque tint makes `glassEffect`
-///   render *heavy* (a flat opaque fill), so the tint alpha is capped to
-///   [maxGlassTintAlpha] to keep the material translucent.
+/// - iOS 27+: native Liquid Glass via `glassEffect`. The neutral (no caller
+///   color) surface is left as bare `.regular`, so it follows the user's
+///   system-wide Liquid Glass translucency slider (Settings ▸ Appearance). A
+///   caller-supplied `surfaceTint` (`ToastStyleOverride.background`) is still
+///   capped to [maxGlassTintAlpha] — an opaque `.tint` renders *heavy* (a flat
+///   opaque fill) even on iOS 27, so the cap keeps colored glass translucent.
+/// - iOS 26: same `glassEffect` and the same caller-tint cap, but there is no
+///   system control, so the neutral surface gets a subtle 0.28 dark/light
+///   legibility wash instead of bare `.regular`.
 /// - iOS 17–25: a frosted `.ultraThinMaterial` fallback, tinted by
 ///   `surfaceTint` when set (else a neutral scheme wash).
 /// - Reduce Transparency: an opaque background — filled with `surfaceTint` when
@@ -53,10 +55,9 @@ struct GlassBackground<S: Shape>: View {
   private func glass(isDark: Bool) -> some View {
     #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
-      let glassTint = surfaceTint.map(translucentTint) ?? (isDark ? Color.black : Color.white).opacity(0.28)
       shape
         .fill(.clear)
-        .glassEffect(.regular.tint(glassTint), in: shape)
+        .glassEffect(resolvedGlass(isDark: isDark), in: shape)
         // Explicit shadow: the entrance animates opacity/scale/offset on top of
         // this glass, which forces SwiftUI to rasterize it and suppresses the
         // glass's *system* ambient shadow mid-animation (it dips out, then snaps
@@ -71,6 +72,29 @@ struct GlassBackground<S: Shape>: View {
     frosted(isDark: isDark)
     #endif
   }
+
+  /// The `Glass` style for the toast surface.
+  ///
+  /// A caller `background` is always capped ([translucentTint]) so an opaque
+  /// color reads as glass rather than a flat fill — verified still necessary on
+  /// iOS 27 at the default slider (an opaque `.tint` still renders heavy). The
+  /// *neutral* (no caller color) surface is where the OSes diverge:
+  ///   • iOS 27 leaves `.regular` fully system-driven, so it follows the user's
+  ///     Liquid Glass translucency slider (Settings ▸ Appearance).
+  ///   • iOS 26 has no such control, so a subtle 0.28 dark/light legibility wash
+  ///     keeps a neutral toast readable over busy content.
+  #if compiler(>=6.2)
+  @available(iOS 26.0, *)
+  private func resolvedGlass(isDark: Bool) -> Glass {
+    if let tint = surfaceTint.map(translucentTint) {
+      return .regular.tint(tint)
+    }
+    if #available(iOS 27.0, *) {
+      return .regular
+    }
+    return .regular.tint((isDark ? Color.black : Color.white).opacity(0.28))
+  }
+  #endif
 
   @ViewBuilder
   private func frosted(isDark: Bool) -> some View {

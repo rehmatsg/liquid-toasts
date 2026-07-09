@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`liquid_toasts` is a Flutter **plugin** that renders premium, SwiftUI-native
-toasts on an overlay above the Flutter app — adaptive Liquid Glass, springy
-entrance, per-position vertical stacking, async loading toasts — with **no
-`BuildContext` required** (the whole Dart API is static). iOS is implemented
-today; Android is stubbed (`LiquidToastsPlugin.kt` is a method-channel skeleton)
-but the Dart API and wire protocol are platform-neutral.
+`liquid_toasts` is a Flutter **plugin** that renders premium, natively-drawn
+toasts on an overlay above the Flutter app — springy entrance, per-position
+vertical stacking, async loading toasts — with **no `BuildContext` required**
+(the whole Dart API is static). Both platforms are implemented and behave
+identically: iOS renders in SwiftUI with adaptive Liquid Glass; Android renders
+in Jetpack Compose with an opaque adaptive surface (no blur/glass). The Dart
+API and wire protocol are platform-neutral.
 
 ## Commands
 

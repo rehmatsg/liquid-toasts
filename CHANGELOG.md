@@ -1,3 +1,32 @@
+## 0.4.0
+
+**Android support.** The plugin now renders natively on Android too, with full
+parity to the iOS behavior. No API changes — the entire Dart surface, wire
+protocol, and semantics are shared across platforms.
+
+* **Native Jetpack Compose renderer** — toasts are drawn on a Compose overlay
+  installed into the activity's decor view, above the Flutter UI, with the same
+  pass-through hit-testing (touches fall through to your app except where a
+  toast sits). No `BuildContext`, no per-app setup or Gradle changes.
+* **Behavior parity with iOS** — positions, per-position vertical stacking,
+  semantics, one action button (incl. async `loadingOnPress`), `toast.promise`
+  loading→success/error morphs, linear + circular progress, replace-by-`groupKey`,
+  tap- and swipe-to-dismiss, and **wall-clock auto-dismiss that survives
+  backgrounding** all behave identically. Same wire acks, dismiss reasons, and
+  lifecycle events. A hot restart flushes stale toasts, as on iOS.
+* **Opaque surface** — Android renders an **opaque** adaptive surface
+  (dark `#242424` / light `#FAFAFA`) with the same hairline stroke, drop shadow,
+  spring entrance, and fade-out — deliberately not a blur/glass material, so a
+  toast always reads as a raised card over busy content. The show ack reports
+  `glassMode: "opaque"`.
+* **Icons** — SF Symbol names are mapped to matching Material glyphs (the four
+  semantic defaults, all example-app symbols, plus common extras), falling back
+  to the semantic default glyph for unknown names. Icons render statically —
+  animated SF Symbol effects remain iOS-only. Leading images/avatars decode off
+  the main thread, as on iOS. Haptics map to the Android vibrator.
+* **Requirements** — Android **7.0+** (API 24), compiled against SDK 36 with
+  Kotlin 2.3.20 / Jetpack Compose.
+
 ## 0.3.0
 
 A new primary API — the global `toast` object — plus an internal engine

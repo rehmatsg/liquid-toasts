@@ -45,7 +45,7 @@ struct ToastMeasurementProbes: View, Equatable {
   }
 
   private var multilineProbe: some View {
-    let leading = ToastMetrics.leadingPadding(multiline: true, hasLeadingSlot: inputs.showsLeading)
+    let leading = ToastMetrics.leadingPadding(multiline: true, hasLeadingSlot: inputs.showsLeading, hasAction: inputs.hasAction)
     let trailing = ToastMetrics.trailingPadding(multiline: true, hasAction: inputs.hasAction)
     let spacing = ToastMetrics.rowSpacing(multiline: true)
     let glyph: CGFloat = inputs.showsLeading ? ToastMetrics.iconSlot + spacing : 0
@@ -90,7 +90,7 @@ struct ToastMeasurementProbes: View, Equatable {
       }
     }
     .padding(.leading,
-             ToastMetrics.leadingPadding(multiline: false, hasLeadingSlot: inputs.showsLeading))
+             ToastMetrics.leadingPadding(multiline: false, hasLeadingSlot: inputs.showsLeading, hasAction: inputs.hasAction))
     .padding(.trailing,
              ToastMetrics.trailingPadding(multiline: false, hasAction: inputs.hasAction))
     .fixedSize(horizontal: true, vertical: false)

@@ -10,11 +10,18 @@ enum ToastMetrics {
   private static func baseHorizontalPadding(multiline: Bool) -> CGFloat { multiline ? 18 : 16 }
   static func verticalPadding(multiline: Bool) -> CGFloat { multiline ? 14 : 11 }
 
-  /// Leading inset. When a leading icon/avatar is present, it matches the
-  /// vertical inset so the glyph sits in an evenly-padded slot (equal left/
-  /// top/bottom margins) rather than a wider gap on the left than above/below.
-  static func leadingPadding(multiline: Bool, hasLeadingSlot: Bool) -> CGFloat {
-    hasLeadingSlot ? verticalPadding(multiline: multiline) : baseHorizontalPadding(multiline: multiline)
+  /// Roomier leading inset for a *tall* row so a vertically-centered glyph reads
+  /// symmetric with the top/bottom gap instead of hugging the left edge.
+  static let tallRowLeadingPadding: CGFloat = 20
+
+  /// Leading inset for the icon/avatar slot. A plain single-line toast pins the
+  /// glyph snugly (matching the vertical inset), so left/top/bottom read even.
+  /// But when the row is tall — a multiline toast, or one with an action button
+  /// (whose height exceeds the glyph) — the centered glyph would otherwise sit
+  /// closer to the left edge than to the top/bottom, so it gets a roomier inset.
+  static func leadingPadding(multiline: Bool, hasLeadingSlot: Bool, hasAction: Bool) -> CGFloat {
+    guard hasLeadingSlot else { return baseHorizontalPadding(multiline: multiline) }
+    return (multiline || hasAction) ? tallRowLeadingPadding : verticalPadding(multiline: multiline)
   }
 
   /// Trailing inset. With an action present it matches the (tighter) button
@@ -57,9 +64,10 @@ enum ToastMetrics {
 
   // MARK: Shape
 
-  static let multilineCornerRadius: CGFloat = 22
-  /// Large radius that `RoundedRectangle` clamps to a capsule on compact toasts.
-  static let capsuleCornerRadius: CGFloat = 99
+  /// One corner radius for every toast. `RoundedRectangle` clamps it to half the
+  /// height, so a short toast (height < 2×radius) still renders as a capsule,
+  /// while a taller multiline toast reads as a rounded rectangle.
+  static let cornerRadius: CGFloat = 22
 
   // MARK: Drag
 

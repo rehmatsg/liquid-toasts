@@ -21,13 +21,21 @@ internal object ToastMetrics {
 
     fun verticalPadding(multiline: Boolean): Float = if (multiline) 14f else 11f
 
+    /** Roomier leading inset for a tall row so a vertically-centered glyph reads
+     *  symmetric with the top/bottom gap instead of hugging the left edge. */
+    const val TALL_ROW_LEADING_PADDING: Float = 20f
+
     /**
-     * Leading inset. With a leading slot present it matches the vertical inset so
-     * the glyph sits in an evenly-padded slot; otherwise it uses the base
-     * horizontal inset.
+     * Leading inset for the icon/avatar slot. A plain single-line toast pins the
+     * glyph snugly (matching the vertical inset). But when the row is tall — a
+     * multiline toast, or one with an action button (taller than the glyph) — the
+     * centered glyph would sit closer to the left edge than to the top/bottom, so
+     * it gets a roomier inset.
      */
-    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean): Float =
-        if (hasLeadingSlot) verticalPadding(multiline) else baseHorizontalPadding(multiline)
+    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean, hasAction: Boolean): Float =
+        if (!hasLeadingSlot) baseHorizontalPadding(multiline)
+        else if (multiline || hasAction) TALL_ROW_LEADING_PADDING
+        else verticalPadding(multiline)
 
     /**
      * Trailing inset. With an action present it matches the tighter button margin
@@ -76,10 +84,10 @@ internal object ToastMetrics {
 
     // --- Shape ---
 
-    const val MULTILINE_CORNER_RADIUS: Float = 22f
-
-    /** Large radius the surface clamps to a capsule on compact toasts. */
-    const val CAPSULE_CORNER_RADIUS: Float = 99f
+    /** One corner radius for every toast. The surface shape clamps it to half the
+     *  height, so a short toast (height < 2×radius) still renders as a capsule,
+     *  while a taller multiline toast reads as a rounded rectangle. */
+    const val CORNER_RADIUS: Float = 22f
 
     // --- Drag ---
 

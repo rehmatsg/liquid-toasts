@@ -64,7 +64,7 @@ internal fun ToastContent(
     Row(
         modifier
             .padding(
-                start = ToastMetrics.leadingPadding(isMultiline, toast.showsLeadingSlot).dp,
+                start = ToastMetrics.leadingPadding(isMultiline, toast.showsLeadingSlot, toast.action != null).dp,
                 end = ToastMetrics.trailingPadding(isMultiline, toast.action != null).dp,
                 top = ToastMetrics.verticalPadding(isMultiline).dp,
                 bottom = ToastMetrics.verticalPadding(isMultiline).dp,

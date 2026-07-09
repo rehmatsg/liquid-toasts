@@ -83,7 +83,7 @@ struct ToastContentView: View {
       }
     }
     .padding(.leading,
-             ToastMetrics.leadingPadding(multiline: isMultiline, hasLeadingSlot: toast.showsLeadingSlot))
+             ToastMetrics.leadingPadding(multiline: isMultiline, hasLeadingSlot: toast.showsLeadingSlot, hasAction: toast.action != nil))
     .padding(.trailing,
              ToastMetrics.trailingPadding(multiline: isMultiline, hasAction: toast.action != nil))
     .padding(.vertical, ToastMetrics.verticalPadding(multiline: isMultiline))

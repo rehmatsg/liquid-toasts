@@ -99,8 +99,7 @@ internal fun ToastView(
         label = "toastWidth",
     )
 
-    val cornerRadius = toast.style?.cornerRadius?.toFloat()
-        ?: if (isMultiline) ToastMetrics.MULTILINE_CORNER_RADIUS else ToastMetrics.CAPSULE_CORNER_RADIUS
+    val cornerRadius = toast.style?.cornerRadius?.toFloat() ?: ToastMetrics.CORNER_RADIUS
 
     // Drag offset (px), an Animatable so a cancelled drag springs back to rest.
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -261,7 +260,7 @@ private fun measure(
 
     // Multiline reference width (px): the space the message actually gets in the
     // multiline layout — subtract the insets, glyph slot, and action estimate.
-    val leading = ToastMetrics.leadingPadding(true, showsLeading)
+    val leading = ToastMetrics.leadingPadding(true, showsLeading, hasAction)
     val trailing = ToastMetrics.trailingPadding(true, hasAction)
     val spacing = ToastMetrics.rowSpacing(true)
     val glyph = if (showsLeading) ToastMetrics.ICON_SLOT + spacing else 0f
@@ -289,7 +288,7 @@ private fun measure(
 
     // Natural hugging width (single-line row): insets + glyph slot + max(title,
     // message) single-line width + action, capped by the text column max.
-    val leadS = ToastMetrics.leadingPadding(false, showsLeading)
+    val leadS = ToastMetrics.leadingPadding(false, showsLeading, hasAction)
     val trailS = ToastMetrics.trailingPadding(false, hasAction)
     val spacingS = ToastMetrics.rowSpacing(false)
     val glyphS = if (showsLeading) ToastMetrics.ICON_SLOT + spacingS else 0f

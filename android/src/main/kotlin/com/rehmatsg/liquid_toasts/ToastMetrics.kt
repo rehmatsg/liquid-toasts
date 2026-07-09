@@ -21,13 +21,23 @@ internal object ToastMetrics {
 
     fun verticalPadding(multiline: Boolean): Float = if (multiline) 14f else 11f
 
+    /** Roomier leading inset for a tall row so a vertically-centered glyph reads
+     *  symmetric with the top/bottom gap instead of hugging the left edge. */
+    const val TALL_ROW_LEADING_PADDING: Float = 20f
+
     /**
-     * Leading inset. With a leading slot present it matches the vertical inset so
-     * the glyph sits in an evenly-padded slot; otherwise it uses the base
-     * horizontal inset.
+     * Leading inset for the icon/avatar slot. A plain single-line toast pins the
+     * glyph snugly (matching the vertical inset). But when the row is *tall* —
+     * more than one content line — the centered glyph would sit closer to the
+     * left edge than to the top/bottom, so it gets a roomier inset. A row is tall
+     * when [tallRow] is set: a multiline (wrapped) message, a title above a
+     * message (two lines), or an action button (taller than the glyph). The
+     * caller computes it so the live view and the measurement pass agree.
      */
-    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean): Float =
-        if (hasLeadingSlot) verticalPadding(multiline) else baseHorizontalPadding(multiline)
+    fun leadingPadding(multiline: Boolean, hasLeadingSlot: Boolean, tallRow: Boolean): Float =
+        if (!hasLeadingSlot) baseHorizontalPadding(multiline)
+        else if (tallRow) TALL_ROW_LEADING_PADDING
+        else verticalPadding(multiline)
 
     /**
      * Trailing inset. With an action present it matches the tighter button margin
@@ -76,9 +86,12 @@ internal object ToastMetrics {
 
     // --- Shape ---
 
+    /** Corner radius for a wrapped multiline toast — a rounded rectangle. */
     const val MULTILINE_CORNER_RADIUS: Float = 22f
 
-    /** Large radius the surface clamps to a capsule on compact toasts. */
+    /** Corner radius for a single-line toast (title and/or message on one line):
+     *  a large radius the surface clamps to half the height, so it reads as a
+     *  capsule regardless of how tall a title + message makes it. */
     const val CAPSULE_CORNER_RADIUS: Float = 99f
 
     // --- Drag ---

@@ -45,7 +45,8 @@ struct ToastMeasurementProbes: View, Equatable {
   }
 
   private var multilineProbe: some View {
-    let leading = ToastMetrics.leadingPadding(multiline: true, hasLeadingSlot: inputs.showsLeading)
+    // Multiline hypothesis: the message wraps, so the row is always tall.
+    let leading = ToastMetrics.leadingPadding(multiline: true, hasLeadingSlot: inputs.showsLeading, tallRow: true)
     let trailing = ToastMetrics.trailingPadding(multiline: true, hasAction: inputs.hasAction)
     let spacing = ToastMetrics.rowSpacing(multiline: true)
     let glyph: CGFloat = inputs.showsLeading ? ToastMetrics.iconSlot + spacing : 0
@@ -90,7 +91,13 @@ struct ToastMeasurementProbes: View, Equatable {
       }
     }
     .padding(.leading,
-             ToastMetrics.leadingPadding(multiline: false, hasLeadingSlot: inputs.showsLeading))
+             ToastMetrics.leadingPadding(
+               multiline: false,
+               hasLeadingSlot: inputs.showsLeading,
+               // Single-line hypothesis: tall when an action button or a title
+               // above the message adds a second line.
+               tallRow: inputs.hasAction
+                 || (inputs.title?.isEmpty == false && !inputs.message.isEmpty)))
     .padding(.trailing,
              ToastMetrics.trailingPadding(multiline: false, hasAction: inputs.hasAction))
     .fixedSize(horizontal: true, vertical: false)

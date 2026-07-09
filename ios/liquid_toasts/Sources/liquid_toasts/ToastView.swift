@@ -52,14 +52,22 @@ struct ToastView: View {
     return naturalWidth > 0 ? naturalWidth : nil
   }
 
+  /// True when the toast shows more than one line of text *total* — a wrapped
+  /// (multiline) message, or a title above a message. Drives the shape: a
+  /// single-line toast is a capsule, multi-line content is a rounded rectangle.
+  private var hasMultipleTextLines: Bool {
+    isMultiline || (toast.title?.isEmpty == false && !toast.message.isEmpty)
+  }
+
   private var shape: AnyShape {
-    // One shape type for every state (so the frame can animate across the
-    // multiline boundary without the shape snapping). The radius keys off width:
-    // at the full multiline width use the rounded-rect radius; narrower (a
-    // hugging single-line toast) use a large radius that `RoundedRectangle`
-    // clamps to a capsule.
+    // One shape type for every state (so the frame animates across the multiline
+    // boundary without the shape snapping). Capsule (a large radius the shape
+    // clamps to half the height) when a single line of text is shown; a
+    // rounded rectangle when more than one line is — decided on the *total* text
+    // (title + message), not the message alone. Width stays hugging until the
+    // message itself wraps, so a compact titled toast is a small rounded card.
     let radius = toast.style?.cornerRadius
-      ?? (isMultiline ? ToastMetrics.multilineCornerRadius : ToastMetrics.capsuleCornerRadius)
+      ?? (hasMultipleTextLines ? ToastMetrics.multilineCornerRadius : ToastMetrics.capsuleCornerRadius)
     return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 
@@ -79,7 +87,7 @@ struct ToastView: View {
       // Multiline pins to the (capped) near-full width; single-line hugs content
       // — both concrete widths so a morph across the boundary animates.
       .modifier(ToastWidthModifier(width: resolvedWidth))
-      .background { GlassBackground(shape: shape) }
+      .background { GlassBackground(shape: shape, surfaceTint: toast.style?.background?.resolved(scheme)) }
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
       .contentShape(shape)
       .background(ToastMeasurementProbes(inputs: measurementInputs).equatable())

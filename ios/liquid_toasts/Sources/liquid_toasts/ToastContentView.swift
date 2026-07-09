@@ -30,6 +30,15 @@ struct ToastContentView: View {
     !toast.showsLeadingSlot && toast.action == nil && !isMultiline
   }
 
+  /// The row spans more than one content line — a wrapped (multiline) message, a
+  /// title above the message, or an action button taller than the glyph. Drives
+  /// the roomier leading inset so a vertically-centered glyph doesn't hug the
+  /// left edge.
+  private var tallRow: Bool {
+    isMultiline || toast.action != nil
+      || (toast.title?.isEmpty == false && !toast.message.isEmpty)
+  }
+
   var body: some View {
     // Icon and action stay vertically centered against the (possibly tall)
     // text column.
@@ -83,7 +92,7 @@ struct ToastContentView: View {
       }
     }
     .padding(.leading,
-             ToastMetrics.leadingPadding(multiline: isMultiline, hasLeadingSlot: toast.showsLeadingSlot))
+             ToastMetrics.leadingPadding(multiline: isMultiline, hasLeadingSlot: toast.showsLeadingSlot, tallRow: tallRow))
     .padding(.trailing,
              ToastMetrics.trailingPadding(multiline: isMultiline, hasAction: toast.action != nil))
     .padding(.vertical, ToastMetrics.verticalPadding(multiline: isMultiline))

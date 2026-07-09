@@ -121,6 +121,7 @@ struct AdaptiveColor: Equatable {
 
 struct ToastStyleModel: Equatable {
   var tint: AdaptiveColor?
+  var background: AdaptiveColor?
   var foreground: AdaptiveColor?
   var iconColor: AdaptiveColor?
   var glass: ToastGlassIntent?
@@ -130,6 +131,7 @@ struct ToastStyleModel: Equatable {
   init?(_ value: Any?) {
     guard let map = value as? [String: Any] else { return nil }
     tint = AdaptiveColor(map["tint"])
+    background = AdaptiveColor(map["background"])
     foreground = AdaptiveColor(map["foreground"])
     iconColor = AdaptiveColor(map["iconColor"])
     glass = map.enumValue("glass")

@@ -99,7 +99,8 @@ internal fun ToastView(
         label = "toastWidth",
     )
 
-    val cornerRadius = toast.style?.cornerRadius?.toFloat() ?: ToastMetrics.CORNER_RADIUS
+    val cornerRadius = toast.style?.cornerRadius?.toFloat()
+        ?: if (isMultiline) ToastMetrics.MULTILINE_CORNER_RADIUS else ToastMetrics.CAPSULE_CORNER_RADIUS
 
     // Drag offset (px), an Animatable so a cancelled drag springs back to rest.
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }

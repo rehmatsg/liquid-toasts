@@ -64,10 +64,12 @@ enum ToastMetrics {
 
   // MARK: Shape
 
-  /// One corner radius for every toast. `RoundedRectangle` clamps it to half the
-  /// height, so a short toast (height < 2×radius) still renders as a capsule,
-  /// while a taller multiline toast reads as a rounded rectangle.
-  static let cornerRadius: CGFloat = 22
+  /// Corner radius for a wrapped multiline toast — a rounded rectangle.
+  static let multilineCornerRadius: CGFloat = 22
+  /// Corner radius for a single-line toast (title and/or message on one line):
+  /// a large radius the shape clamps to half the height, so it reads as a capsule
+  /// regardless of how tall a title + message makes it.
+  static let capsuleCornerRadius: CGFloat = 99
 
   // MARK: Drag
 

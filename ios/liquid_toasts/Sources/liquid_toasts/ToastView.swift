@@ -53,11 +53,12 @@ struct ToastView: View {
   }
 
   private var shape: AnyShape {
-    // One corner radius for every state. `RoundedRectangle` clamps the radius to
-    // half the height, so a short (single-line) toast renders as a capsule and a
-    // taller (multiline / titled) one as a rounded rectangle — a continuous
-    // transition as the toast grows, with no radius snap across the boundary.
-    let radius = toast.style?.cornerRadius ?? ToastMetrics.cornerRadius
+    // One shape type for every state (so the frame animates across the multiline
+    // boundary without the shape snapping). A single-line toast (title and/or
+    // message on one line) uses a large radius that `RoundedRectangle` clamps to
+    // a capsule; a wrapped multiline toast uses the rounded-rect radius.
+    let radius = toast.style?.cornerRadius
+      ?? (isMultiline ? ToastMetrics.multilineCornerRadius : ToastMetrics.capsuleCornerRadius)
     return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 

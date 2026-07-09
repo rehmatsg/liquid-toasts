@@ -84,10 +84,13 @@ internal object ToastMetrics {
 
     // --- Shape ---
 
-    /** One corner radius for every toast. The surface shape clamps it to half the
-     *  height, so a short toast (height < 2×radius) still renders as a capsule,
-     *  while a taller multiline toast reads as a rounded rectangle. */
-    const val CORNER_RADIUS: Float = 22f
+    /** Corner radius for a wrapped multiline toast — a rounded rectangle. */
+    const val MULTILINE_CORNER_RADIUS: Float = 22f
+
+    /** Corner radius for a single-line toast (title and/or message on one line):
+     *  a large radius the surface clamps to half the height, so it reads as a
+     *  capsule regardless of how tall a title + message makes it. */
+    const val CAPSULE_CORNER_RADIUS: Float = 99f
 
     // --- Drag ---
 

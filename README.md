@@ -1,8 +1,9 @@
 # liquid_toasts
 
-Premium, **SwiftUI-native** toasts for Flutter — rendered above your app with
-adaptive **Liquid Glass**, a springy slide-in entrance, per-position vertical
-stacking, and async **loading** toasts. No `BuildContext` required.
+Premium, **natively-rendered** toasts for Flutter — drawn above your app in
+**SwiftUI on iOS** and **Jetpack Compose on Android**, with a springy slide-in
+entrance, per-position vertical stacking, and async **loading** toasts. One
+platform-neutral Dart API; no `BuildContext` required.
 
 ## Showcase
 
@@ -31,11 +32,14 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 
 ## Highlights
 
-- **Native rendering** — toasts are drawn in SwiftUI on an overlay above your
-  Flutter UI, so they float over everything and need no `BuildContext`.
-- **Adaptive Liquid Glass** — real `glassEffect` on iOS 26+, a frosted
-  `.ultraThinMaterial` fallback on iOS 17–25, and an opaque surface under
-  *Reduce Transparency*.
+- **Native rendering** — toasts are drawn on a native overlay above your
+  Flutter UI (SwiftUI on iOS, Jetpack Compose on Android), so they float over
+  everything and need no `BuildContext`. The whole Dart API is identical across
+  platforms.
+- **Adaptive surface** — on iOS, real `glassEffect` Liquid Glass on iOS 26+, a
+  frosted `.ultraThinMaterial` fallback on iOS 17–25, and an opaque surface
+  under *Reduce Transparency*. On Android, an opaque adaptive surface
+  (dark/light) with the same hairline stroke and drop shadow.
 - **Springy entrance** — toasts slide in from the nearest edge (down from the
   top, up from the bottom) with a fade + scale, and fade + blur away in place.
 - **Loading lifecycle** — wrap a `Future`; show a spinner, then morph to
@@ -45,9 +49,12 @@ stacking, and async **loading** toasts. No `BuildContext` required.
   newest pushes the rest along, and overflow scales + fades + blurs away in
   place.
 - **Semantic styles** — `success` / `error` / `warning` / `info`, each
-  overridable. SF Symbols by name, with customizable (adaptive) icon colors.
+  overridable. Icons are named as SF Symbols; on Android the same names are
+  mapped to matching Material glyphs (falling back to the semantic default for
+  unknown names). Customizable (adaptive) icon colors on both platforms.
 - **Animated icons** — opt into an SF Symbol effect (`bounce`, `pulse`,
-  `wiggle`, `rotate`, `breathe`, `variableColor`, or iOS-26 `drawOn`) per toast.
+  `wiggle`, `rotate`, `breathe`, `variableColor`, or iOS-26 `drawOn`) per toast
+  (iOS only; the glyph renders statically on Android).
 - **One action button** — fully rounded, color derived from a semantic role.
 - **Production extras** — tap-to-dismiss, replace-by-key, determinate progress,
   haptics, accessibility (VoiceOver + Reduce Motion), app-wide defaults, and
@@ -56,13 +63,35 @@ stacking, and async **loading** toasts. No `BuildContext` required.
 ## Requirements
 
 - iOS **17.0+** (Liquid Glass auto-activates on iOS 26+; frosted fallback below).
+- Android **7.0+** (API 24). Rendered natively in Jetpack Compose; no extra
+  setup or Gradle changes needed in a standard Flutter app.
 - Flutter **3.27+**.
+
+## Platform support
+
+The Dart API, wire protocol, and behavior are identical on both platforms —
+positions, stacking, semantics, actions (incl. async), `promise` morphs,
+progress, replace-by-key, tap/swipe-to-dismiss, wall-clock auto-dismiss (which
+survives backgrounding), haptics, and accessibility all work the same. Only the
+native surface differs:
+
+| | iOS | Android |
+|---|---|---|
+| Renderer | SwiftUI overlay (same window) | Jetpack Compose overlay (decor view) |
+| Surface | Liquid Glass (26+) / `.ultraThinMaterial` (17–25) / opaque | Opaque adaptive surface (dark/light) |
+| Icons | SF Symbols + animated symbol effects | SF Symbol names mapped to Material glyphs (static) |
+| Dynamic Island origin | Yes (top-center) | — (slide-in) |
+| Min version | iOS 17.0 | Android 7.0 (API 24) |
+
+Android renders an **opaque** surface rather than a blur/glass material — same
+hairline stroke, drop shadow, spring entrance, and fade-out — so a toast reads
+as a raised card that never becomes unreadable over busy content.
 
 ## Install
 
 ```yaml
 dependencies:
-  liquid_toasts: ^0.3.0
+  liquid_toasts: ^0.4.0
 ```
 
 ## Usage

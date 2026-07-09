@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Adaptive glass surface for a toast.
 ///
@@ -6,7 +7,9 @@ import SwiftUI
 ///   stays **neutral** (a subtle dark/light tint for notification legibility)
 ///   so it refracts the app cleanly. A caller-supplied `surfaceTint`
 ///   (`ToastStyleOverride.background`) colors the glass instead — a translucent
-///   wash over the live refraction.
+///   wash over the live refraction. A fully-opaque tint makes `glassEffect`
+///   render *heavy* (a flat opaque fill), so the tint alpha is capped to
+///   [maxGlassTintAlpha] to keep the material translucent.
 /// - iOS 17–25: a frosted `.ultraThinMaterial` fallback, tinted by
 ///   `surfaceTint` when set (else a neutral scheme wash).
 /// - Reduce Transparency: an opaque background — filled with `surfaceTint` when
@@ -17,8 +20,22 @@ struct GlassBackground<S: Shape>: View {
   /// adaptive default on every tier.
   var surfaceTint: Color? = nil
 
+  /// Ceiling on the tint alpha for the translucent (glass / frosted) tiers.
+  /// Above this, `glassEffect(.tint:)` flips the material to its heavy, opaque
+  /// weight and the surface stops reading as glass. The opaque Reduce
+  /// Transparency tier is exempt (it *should* be solid).
+  static var maxGlassTintAlpha: CGFloat { 0.5 }
+
   @Environment(\.colorScheme) private var scheme
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+  /// Clamps a surface tint's alpha to [maxGlassTintAlpha] (leaving already-
+  /// translucent tints untouched) so colored glass stays translucent.
+  private func translucentTint(_ color: Color) -> Color {
+    let alpha = UIColor(color).cgColor.alpha
+    guard alpha > Self.maxGlassTintAlpha else { return color }
+    return color.opacity(Self.maxGlassTintAlpha / alpha)
+  }
 
   var body: some View {
     let isDark = scheme == .dark
@@ -36,7 +53,7 @@ struct GlassBackground<S: Shape>: View {
   private func glass(isDark: Bool) -> some View {
     #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
-      let glassTint = surfaceTint ?? (isDark ? Color.black : Color.white).opacity(0.28)
+      let glassTint = surfaceTint.map(translucentTint) ?? (isDark ? Color.black : Color.white).opacity(0.28)
       shape
         .fill(.clear)
         .glassEffect(.regular.tint(glassTint), in: shape)
@@ -57,7 +74,7 @@ struct GlassBackground<S: Shape>: View {
 
   @ViewBuilder
   private func frosted(isDark: Bool) -> some View {
-    let wash = surfaceTint ?? (isDark ? Color.black : Color.white).opacity(isDark ? 0.26 : 0.16)
+    let wash = surfaceTint.map(translucentTint) ?? (isDark ? Color.black : Color.white).opacity(isDark ? 0.26 : 0.16)
     shape
       .fill(.ultraThinMaterial)
       .overlay(shape.fill(wash))

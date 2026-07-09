@@ -4,9 +4,6 @@ Premium, **SwiftUI-native** toasts for Flutter — rendered above your app with
 adaptive **Liquid Glass**, a springy slide-in entrance, per-position vertical
 stacking, and async **loading** toasts. No `BuildContext` required.
 
-> iOS is supported today. Android is on the roadmap; the Dart API and wire
-> protocol are platform-neutral so the same surface will light up on Android.
-
 ## Showcase
 
 <table>

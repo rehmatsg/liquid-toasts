@@ -31,7 +31,14 @@ class LiquidToastsConfig {
   final ToastGlass defaultGlass;
 
   /// Max toasts shown per position (a vertical list). When a new toast would
-  /// exceed this, the oldest in that position is dismissed.
+  /// exceed this, the oldest **auto-dismiss** toast in that position is
+  /// dismissed to make room.
+  ///
+  /// Persistent and loading toasts (those with no auto-dismiss duration —
+  /// `duration: Duration.zero`/`null`, and `promise`/`loading` spinners) are
+  /// exempt: they are caller- or promise-owned and are never force-dismissed by
+  /// overflow. A position may therefore exceed [maxVisible] while it is full of
+  /// such toasts; they leave only when you dismiss them (or the user does).
   final int maxVisible;
 
   /// Reserved upper bound on total tracked toasts.

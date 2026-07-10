@@ -135,7 +135,7 @@ internal class ToastManager(
 
         bumpGeneration()
         stack = stack + model
-        enforcePositionLimit(model.position)
+        enforcePositionLimit(model.position, model.id)
         scheduler.arm(model.id, model.autoDurationMs)
         fireHaptic(model)
         emitShown(model)
@@ -298,16 +298,27 @@ internal class ToastManager(
 
     /**
      * Keeps at most [maxVisible] toasts per position, dismissing victims with
-     * reason `"replaced"` when [dropOldest], else dropping the newest incoming.
+     * reason `"replaced"`.
+     *
+     * Only **auto-dismiss** toasts are eligible: a persistent or loading toast
+     * has no deadline ([ToastModel.autoDurationMs] is null) and is
+     * caller-/promise-owned, so it is never force-dismissed by overflow. When a
+     * position fills with such toasts the stack is allowed to **exceed**
+     * [maxVisible] (a soft cap) rather than reap one the caller is still
+     * managing. The just-presented [incomingId] is likewise never evicted under
+     * [dropOldest] — it was explicitly requested now, so it shows even if that
+     * means a soft overflow.
      */
-    private fun enforcePositionLimit(position: ToastPositionModel) {
+    private fun enforcePositionLimit(position: ToastPositionModel, incomingId: String) {
         val inPosition = stack.filter { it.position == position }
         val overflow = inPosition.size - maxVisible
         if (overflow <= 0) return
+        // Persistent / loading toasts (no deadline) are exempt from eviction.
+        val evictable = inPosition.filter { it.autoDurationMs != null }
         val victims = if (dropOldest) {
-            inPosition.take(overflow) // oldest first (head of the list)
+            evictable.filter { it.id != incomingId }.take(overflow) // oldest first, keep incoming
         } else {
-            inPosition.takeLast(overflow) // newest (the just-appended incoming)
+            evictable.takeLast(overflow) // newest — rejects the incoming transient
         }
         for (victim in victims) teardown(victim.id, "replaced")
     }

@@ -29,6 +29,7 @@ void main() {
       'promise-error': _promiseError,
       'positions': _positions,
       'groupkey-replace': _groupKeyReplace,
+      'shake-in-place': _shakeInPlace,
       'stacking': _stacking,
     },
   );
@@ -240,7 +241,22 @@ Future<void> _groupKeyReplace() async {
   await _wait(2600 + 1500);
 }
 
-// 14. Rapid stacking — newest pushes the rest along.
+// 14. Re-showing a same-group toast whose text is unchanged shakes it in place
+// instead of replaying exit+enter (contrast with #13, where the text changes
+// and it morphs/replaces).
+Future<void> _shakeInPlace() async {
+  for (var i = 0; i < 4; i++) {
+    toast.success(
+      'Link copied',
+      groupKey: 'copy',
+      duration: const Duration(seconds: 6),
+    );
+    await _wait(850);
+  }
+  await _wait(_hold.inMilliseconds);
+}
+
+// 15. Rapid stacking — newest pushes the rest along.
 Future<void> _stacking() async {
   for (var i = 1; i <= 4; i++) {
     toast.info('Notification #$i', duration: null);

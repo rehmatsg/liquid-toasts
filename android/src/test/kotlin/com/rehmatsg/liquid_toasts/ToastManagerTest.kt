@@ -48,6 +48,7 @@ internal class ToastManagerTest {
         groupKey: String? = null,
         position: ToastPositionModel = ToastPositionModel.TopCenter,
         persistent: Boolean = false,
+        state: ToastContentState = ToastContentState.Static,
         durationMs: Int? = 3000,
         haptic: ToastHapticKind = ToastHapticKind.None,
         tapToDismiss: Boolean = true,
@@ -63,7 +64,7 @@ internal class ToastManagerTest {
         semantic = ToastSemantic.None,
         style = null,
         position = position,
-        state = ToastContentState.Static,
+        state = state,
         persistent = persistent,
         durationMs = durationMs,
         useDynamicIslandOrigin = true,
@@ -175,6 +176,58 @@ internal class ToastManagerTest {
         h.manager.present(model("c"))
         assertEquals(listOf("a", "b"), h.toasts.map { it.id })
         assertTrue(h.dismissedReasons().contains("c" to "replaced"))
+    }
+
+    @Test
+    fun maxVisible_persistentToastSurvivesOverflow_evictsOldestTransient() = runTest {
+        val h = Harness(this)
+        h.manager.maxVisible = 2
+        h.manager.dropOldest = true
+        h.manager.present(model("p", persistent = true))
+        h.manager.present(model("a"))
+        h.manager.present(model("b")) // overflow: evict oldest *transient*, not the persistent one
+        assertEquals(listOf("p", "b"), h.toasts.map { it.id })
+        assertTrue(h.dismissedReasons().contains("a" to "replaced"))
+        // The persistent toast is never force-dismissed by overflow.
+        assertFalse(h.dismissedReasons().any { it.first == "p" })
+    }
+
+    @Test
+    fun maxVisible_loadingToastExemptFromEviction() = runTest {
+        val h = Harness(this)
+        h.manager.maxVisible = 2
+        h.manager.dropOldest = true
+        h.manager.present(model("spin", state = ToastContentState.Loading))
+        h.manager.present(model("a"))
+        h.manager.present(model("b")) // a loading spinner has no deadline → exempt
+        assertEquals(listOf("spin", "b"), h.toasts.map { it.id })
+        assertTrue(h.dismissedReasons().contains("a" to "replaced"))
+        assertFalse(h.dismissedReasons().any { it.first == "spin" })
+    }
+
+    @Test
+    fun maxVisible_allPersistentExceedsSoftCap_noEviction() = runTest {
+        val h = Harness(this)
+        h.manager.maxVisible = 2
+        h.manager.dropOldest = true
+        h.manager.present(model("p1", persistent = true))
+        h.manager.present(model("p2", persistent = true))
+        h.manager.present(model("p3", persistent = true)) // nothing evictable → soft overflow
+        assertEquals(listOf("p1", "p2", "p3"), h.toasts.map { it.id })
+        assertTrue(h.dismissedReasons().isEmpty())
+    }
+
+    @Test
+    fun maxVisible_dropNewest_rejectsIncomingTransientButKeepsPersistent() = runTest {
+        val h = Harness(this)
+        h.manager.maxVisible = 2
+        h.manager.dropOldest = false
+        h.manager.present(model("p", persistent = true))
+        h.manager.present(model("a"))
+        h.manager.present(model("b")) // drop-newest rejects the incoming transient
+        assertEquals(listOf("p", "a"), h.toasts.map { it.id })
+        assertTrue(h.dismissedReasons().contains("b" to "replaced"))
+        assertFalse(h.dismissedReasons().any { it.first == "p" })
     }
 
     @Test

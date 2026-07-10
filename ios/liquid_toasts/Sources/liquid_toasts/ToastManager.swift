@@ -100,7 +100,7 @@ final class ToastManager: ObservableObject {
     withAnimation(stackSpring) {
       toasts.append(model)
     }
-    enforcePositionLimit(model.position)
+    enforcePositionLimit(model.position, incomingId: model.id)
     scheduler.arm(id: model.id, duration: model.autoDuration)
     fireHaptic(model)
     emitShown(model)
@@ -253,15 +253,25 @@ final class ToastManager: ObservableObject {
     }
   }
 
-  /// Keeps at most `maxVisible` toasts per position, dismissing the oldest
-  /// (which sits at the tail of the list) so it fades/blurs out in place.
-  private func enforcePositionLimit(_ position: ToastPositionModel) {
+  /// Keeps at most `maxVisible` toasts per position, dismissing the oldest so
+  /// it fades/blurs out in place.
+  ///
+  /// Only **auto-dismiss** toasts are eligible: a persistent or loading toast
+  /// has no deadline (`autoDuration == nil`) and is caller-/promise-owned, so
+  /// it is never force-dismissed by overflow. When a position fills with such
+  /// toasts the stack is allowed to **exceed** `maxVisible` (a soft cap) rather
+  /// than reap one the caller is still managing. The just-presented
+  /// `incomingId` is likewise never evicted under `dropOldest` — it was
+  /// explicitly requested now, so it shows even if that means a soft overflow.
+  private func enforcePositionLimit(_ position: ToastPositionModel, incomingId: String) {
     let inPosition = toasts.filter { $0.position == position }
     let overflow = inPosition.count - maxVisible
     guard overflow > 0 else { return }
+    // Persistent / loading toasts (no deadline) are exempt from eviction.
+    let evictable = inPosition.filter { $0.autoDuration != nil }
     let victims = dropOldest
-      ? Array(inPosition.prefix(overflow)) // oldest first
-      : Array(inPosition.suffix(overflow))
+      ? Array(evictable.filter { $0.id != incomingId }.prefix(overflow)) // oldest first, keep incoming
+      : Array(evictable.suffix(overflow)) // newest — rejects the incoming transient
     for victim in victims {
       teardown(id: victim.id, reason: "replaced")
     }

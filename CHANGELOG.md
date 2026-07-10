@@ -1,3 +1,22 @@
+## 0.6.0
+
+**Shake in place & smarter overflow.** Two native refinements to how the stack
+behaves. The Dart API and wire protocol are unchanged.
+
+* **Shake on unchanged re-show** — re-showing a toast that shares a `groupKey`
+  with a still-visible one now **shakes it horizontally in place** instead of
+  replaying the exit + enter animation, when the title and message are
+  unchanged (e.g. tapping "Copy" again while the confirmation is still up). A
+  re-show that *changes* the text still morphs/replaces as before. Respects
+  Reduce Motion / disabled animations. iOS (SwiftUI `GeometryEffect`) and
+  Android (Compose `graphicsLayer`).
+* **Persistent toasts survive overflow** — the per-position `maxVisible` cap now
+  evicts only **auto-dismiss** toasts. Persistent toasts (`duration:
+  Duration.zero`) and `promise`/`loading` spinners have no auto-dismiss deadline
+  and are caller- or promise-owned, so they are no longer force-dismissed when a
+  burst of new toasts exceeds the cap — a position may exceed `maxVisible` while
+  it is full of them. They leave only when you (or the user) dismiss them.
+
 ## 0.5.0
 
 **Custom surface color.** New `ToastStyleOverride.background` colors the toast

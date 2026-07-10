@@ -63,17 +63,31 @@ final class ToastManager: ObservableObject {
     // Replace-by-groupKey: morph an existing toast instead of stacking a dup.
     if let key = model.groupKey,
        let index = toasts.firstIndex(where: { $0.groupKey == key }) {
-      let oldId = toasts[index].id
+      let existing = toasts[index]
+      let oldId = existing.id
       scheduler.disarm(id: oldId)
       frames[oldId] = nil
       imageGeneration[oldId] = nil
       var incoming = model
-      if imageData != nil, let preserved = toasts[index].image {
+      if imageData != nil, let preserved = existing.image {
         // Keep the old avatar up until the fresh decode lands (no blank flash).
         incoming.image = preserved
       }
-      stackGeneration += 1
-      withAnimation(stackSpring) { toasts[index] = incoming }
+      // Re-show of a group whose text is unchanged: shake the existing toast in
+      // place instead of exit+enter. Keeping the old view identity is what avoids
+      // the re-entrance; adopting the incoming id keeps the newest handle in
+      // control of the (same) toast, exactly like a content morph.
+      let textUnchanged = existing.title == incoming.title && existing.message == incoming.message
+      if textUnchanged {
+        incoming.identity = existing.identity
+        incoming.shakeToken = existing.shakeToken &+ 1
+        // No stackGeneration bump: the identity set is unchanged, so nothing
+        // structural animates — only the row's one-shot shake plays.
+        toasts[index] = incoming
+      } else {
+        stackGeneration += 1
+        withAnimation(stackSpring) { toasts[index] = incoming }
+      }
       emitDismissed(oldId, reason: "replaced")
       scheduler.arm(id: model.id, duration: model.autoDuration)
       fireHaptic(model)

@@ -90,4 +90,14 @@ enum ToastMetrics {
   static let stackSpring: Animation = .spring(response: 0.42, dampingFraction: 0.82)
   /// Snappier settle: drag return, icon swaps.
   static let settleSpring: Animation = .spring(response: 0.35, dampingFraction: 0.7)
+
+  // MARK: Shake (group re-show with unchanged text)
+
+  /// Peak horizontal displacement of the in-place shake.
+  static let shakeAmplitude: CGFloat = 7
+  /// Left-right oscillations per shake.
+  static let shakeCount: CGFloat = 3
+  /// Time base for the shake — linear, so the sine + amplitude falloff (not the
+  /// easing curve) shape the motion.
+  static let shakeAnimation: Animation = .linear(duration: 0.45)
 }

@@ -132,6 +132,17 @@ internal object ToastMetrics {
     /** Reduce-Motion analog duration (ms) for the disabled-animations path. */
     const val REDUCED_MOTION_DURATION_MS: Int = 200
 
+    // --- Shake (group re-show with unchanged text) ---
+
+    /** Peak horizontal displacement (dp) of the in-place shake. */
+    const val SHAKE_AMPLITUDE: Float = 7f
+
+    /** Left-right oscillations per shake. */
+    const val SHAKE_COUNT: Float = 3f
+
+    /** Duration (ms) of the shake — linear, so the sine + falloff shape the motion. */
+    const val SHAKE_DURATION_MS: Int = 450
+
     // Compose default token, referenced so callers can build matching offset/size specs.
     @Suppress("unused")
     val stackVisibilityThreshold: Float = Spring.DefaultDisplacementThreshold

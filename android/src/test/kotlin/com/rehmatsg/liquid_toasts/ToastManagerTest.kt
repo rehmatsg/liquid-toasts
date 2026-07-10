@@ -110,10 +110,47 @@ internal class ToastManagerTest {
         h.manager.present(model("first"))
         h.manager.present(model("second", groupKey = "g"))
         h.manager.present(model("third"))
-        // "second" at index 1; replace it via same groupKey.
-        h.manager.present(model("second2", groupKey = "g"))
+        // "second" at index 1; replace it via same groupKey and changed text.
+        h.manager.present(model("second2", message = "changed", groupKey = "g"))
         assertEquals(listOf("first", "second2", "third"), h.toasts.map { it.id })
         assertTrue(h.dismissedReasons().contains("second" to "replaced"))
+    }
+
+    @Test
+    fun groupKey_unchangedText_shakesInPlaceKeepingRowIdentity() = runTest {
+        val h = Harness(this)
+        h.manager.present(model("first", message = "hi", groupKey = "g"))
+        val rowKeyBefore = h.toasts.single().rowKey
+        assertEquals(0, h.toasts.single().shakeToken)
+
+        // Re-show the same group with identical text: shake in place.
+        h.manager.present(model("second", message = "hi", groupKey = "g"))
+        val shaken = h.toasts.single()
+        // Wire id adopts the newest show (newest handle controls the toast)...
+        assertEquals("second", shaken.id)
+        // ...but the row identity is held stable so the row shakes, not re-enters.
+        assertEquals(rowKeyBefore, shaken.rowKey)
+        assertEquals(1, shaken.shakeToken)
+        assertTrue(h.dismissedReasons().contains("first" to "replaced"))
+
+        // A second identical re-show keeps the same identity and bumps the token.
+        h.manager.present(model("third", message = "hi", groupKey = "g"))
+        val shakenAgain = h.toasts.single()
+        assertEquals("third", shakenAgain.id)
+        assertEquals(rowKeyBefore, shakenAgain.rowKey)
+        assertEquals(2, shakenAgain.shakeToken)
+    }
+
+    @Test
+    fun groupKey_changedText_doesNotShake() = runTest {
+        val h = Harness(this)
+        h.manager.present(model("first", message = "hi", groupKey = "g"))
+        h.manager.present(model("second", message = "bye", groupKey = "g"))
+        val replaced = h.toasts.single()
+        assertEquals("second", replaced.id)
+        // Changed text: standard replace, no stable identity, no shake token.
+        assertEquals("second", replaced.rowKey)
+        assertEquals(0, replaced.shakeToken)
     }
 
     @Test

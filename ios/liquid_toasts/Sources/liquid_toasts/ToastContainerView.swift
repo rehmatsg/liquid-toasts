@@ -62,7 +62,10 @@ struct ToastContainerView: View {
     // Top lists show newest first (on top); bottom lists show newest last.
     let ordered = position.isBottom ? toasts : toasts.reversed()
     VStack(alignment: position.horizontalAlignment, spacing: 10) {
-      ForEach(ordered, id: \.id) { toast in
+      // Keyed by `identity`, not `id`: a group re-show with unchanged text keeps
+      // the same identity while swapping the wire id, so the row shakes in place
+      // instead of exit+entering.
+      ForEach(ordered, id: \.identity) { toast in
         ToastRow(
           toast: toast,
           deviceWidth: hostWidth,

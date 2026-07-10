@@ -305,7 +305,21 @@ internal data class ToastModel(
     val isActionBusy: Boolean = false,
     /** True once the entrance transition has played (suppresses re-entrance on reattach). */
     val hasEntered: Boolean = false,
+    /**
+     * The row's view identity, normally the same as [id] (null → use [id]). Held
+     * stable across an in-place group re-show (a "shake") so the row shakes rather
+     * than exit+entering, while [id] still swaps to the newest wire id.
+     */
+    val identity: String? = null,
+    /**
+     * Bumped each time an already-visible group toast is re-shown with unchanged
+     * text: the row observes it and plays a one-shot horizontal shake.
+     */
+    val shakeToken: Int = 0,
 ) {
+    /** Stable Compose row key — [identity] when set, else the wire [id]. */
+    val rowKey: String get() = identity ?: id
+
     /**
      * Applies a fresh model's content onto this toast, preserving [id] (so the UI
      * morphs the existing surface) and clearing [isActionBusy] (a morph

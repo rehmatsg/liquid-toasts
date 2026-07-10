@@ -3,6 +3,7 @@ package com.rehmatsg.liquid_toasts
 import android.graphics.RectF
 import android.os.Build
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,8 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.sin
 
 /** Window-space safe-area insets (dp), fed by the overlay host's inset listener. */
 internal data class ToastInsets(
@@ -116,27 +119,30 @@ private fun PositionedList(
     // id marked `exiting` so its exit transition plays in place; it drops once
     // the animation finishes. The last-seen snapshot per id lets the row keep
     // rendering after the manager has removed it.
+    // Keyed by `rowKey`, not `id`: a group re-show with unchanged text keeps the
+    // same rowKey while swapping the wire id, so the row shakes in place instead
+    // of exit+entering (frames are still tracked per wire id inside the row).
     val snapshots = remember { mutableStateMapOf<String, ToastModel>() }
     val exiting = remember { mutableStateMapOf<String, Boolean>() }
 
-    val liveIds = toasts.map { it.id }.toSet()
+    val liveKeys = toasts.map { it.rowKey }.toSet()
     for (t in toasts) {
-        snapshots[t.id] = t
-        exiting.remove(t.id)
+        snapshots[t.rowKey] = t
+        exiting.remove(t.rowKey)
     }
     // Mark anything we still hold but the manager dropped as exiting.
-    for (id in snapshots.keys.toList()) {
-        if (id !in liveIds && exiting[id] == null) exiting[id] = true
+    for (rowKey in snapshots.keys.toList()) {
+        if (rowKey !in liveKeys && exiting[rowKey] == null) exiting[rowKey] = true
     }
 
     // Display order: live toasts (in their list order) followed by exiting
     // snapshots interleaved at their last index is over-engineered; keeping
-    // exiting rows appended in id order is visually fine because siblings reflow
+    // exiting rows appended in key order is visually fine because siblings reflow
     // on the stack spring regardless.
     val displayed = buildList {
         addAll(toasts)
-        for (id in snapshots.keys) {
-            if (id !in liveIds) snapshots[id]?.let { add(it) }
+        for (rowKey in snapshots.keys) {
+            if (rowKey !in liveKeys) snapshots[rowKey]?.let { add(it) }
         }
     }
 
@@ -151,19 +157,19 @@ private fun PositionedList(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             for (toast in displayed) {
-                key(toast.id) {
+                key(toast.rowKey) {
                     ToastRow(
                         toast = toast,
                         position = position,
-                        exiting = exiting[toast.id] == true,
+                        exiting = exiting[toast.rowKey] == true,
                         entranceDistanceDp = entranceDistanceDp,
                         isDark = isDark,
                         animationsEnabled = animationsEnabled,
                         deviceWidthDp = deviceWidthDp,
                         manager = manager,
                         onExited = {
-                            snapshots.remove(toast.id)
-                            exiting.remove(toast.id)
+                            snapshots.remove(toast.rowKey)
+                            exiting.remove(toast.rowKey)
                         },
                     )
                 }
@@ -199,6 +205,16 @@ private fun ToastRow(
     val enter = remember { Animatable(if (toast.hasEntered || !animationsEnabled) 1f else 0f) }
     // Exit progress 1→0 (1 = present, 0 = gone).
     val exit = remember { Animatable(1f) }
+    // Shake progress 0→1, replayed each time [ToastModel.shakeToken] bumps (a
+    // group re-show with unchanged text). Rest sits at 0 (no displacement).
+    val shake = remember { Animatable(0f) }
+
+    LaunchedEffect(toast.shakeToken) {
+        if (toast.shakeToken == 0 || !animationsEnabled) return@LaunchedEffect
+        shake.snapTo(0f)
+        shake.animateTo(1f, animationSpec = tween(ToastMetrics.SHAKE_DURATION_MS, easing = LinearEasing))
+        shake.snapTo(0f)
+    }
 
     LaunchedEffect(toast.id) {
         if (toast.hasEntered) {
@@ -227,6 +243,14 @@ private fun ToastRow(
     val exitP = exit.value
     val sign = if (position.isTop) -1f else 1f
     val translationYDp = (1f - enterP) * entranceDistanceDp * sign
+    // Horizontal shake: oscillates SHAKE_COUNT times over one unit with a linear
+    // amplitude falloff, settling at 0.
+    val shakeP = shake.value
+    val shakeDx = if (shakeP > 0f && shakeP < 1f) {
+        ToastMetrics.SHAKE_AMPLITUDE * (1f - shakeP) * sin(shakeP * 2f * PI.toFloat() * ToastMetrics.SHAKE_COUNT)
+    } else {
+        0f
+    }
     // Enter scales 0.9→1; exit scales 1→0.86.
     val scale = (0.9f + 0.1f * enterP) * (0.86f + 0.14f * exitP)
     val alpha = enterP * exitP
@@ -244,6 +268,7 @@ private fun ToastRow(
         onPressEnd = { manager.resumeAutoDismiss(toast.id) },
         modifier = Modifier
             .graphicsLayer {
+                translationX += shakeDx * density
                 translationY += translationYDp * density
                 scaleX = scale
                 scaleY = scale

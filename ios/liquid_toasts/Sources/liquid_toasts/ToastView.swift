@@ -17,6 +17,10 @@ struct ToastView: View {
   let onPressEnd: () -> Void
 
   @Environment(\.colorScheme) private var scheme
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// Drives the one-shot horizontal shake fired when a group toast is re-shown
+  /// with unchanged text — tracks [ToastModel.shakeToken].
+  @State private var shakeProgress: CGFloat = 0
   @State private var dragOffset: CGFloat = 0
   @State private var isDragging = false
   @State private var isPressed = false
@@ -91,6 +95,13 @@ struct ToastView: View {
       .overlay(shape.stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.0), lineWidth: 0.5))
       .contentShape(shape)
       .background(ToastMeasurementProbes(inputs: measurementInputs).equatable())
+      .modifier(ShakeEffect(animatableData: shakeProgress))
+      .onChange(of: toast.shakeToken) { _, token in
+        guard token != 0 else { return }
+        // Under Reduce Motion, adopt the token silently (no visible shake).
+        if reduceMotion { shakeProgress = CGFloat(token); return }
+        withAnimation(ToastMetrics.shakeAnimation) { shakeProgress = CGFloat(token) }
+      }
       .offset(y: dragOffset)
       .highPriorityGesture(dragGesture)
       .onTapGesture {
@@ -168,6 +179,25 @@ struct ToastView: View {
           }
         }
       }
+  }
+}
+
+// MARK: - Shake
+
+/// A transient horizontal shake for a group toast re-shown with unchanged text.
+/// `animatableData` carries the shake token: it sweeps one whole unit per shake,
+/// so rest sits exactly on integers (displacement 0) and the toast always
+/// settles centred. Within a unit the offset oscillates [shakeCount] times with
+/// a linear amplitude falloff, so it decays to nothing.
+private struct ShakeEffect: GeometryEffect {
+  var amplitude: CGFloat = ToastMetrics.shakeAmplitude
+  var shakeCount: CGFloat = ToastMetrics.shakeCount
+  var animatableData: CGFloat
+
+  func effectValue(size: CGSize) -> ProjectionTransform {
+    let frac = animatableData - animatableData.rounded(.down)
+    let dx = amplitude * (1 - frac) * sin(frac * .pi * 2 * shakeCount)
+    return ProjectionTransform(CGAffineTransform(translationX: dx, y: 0))
   }
 }
 

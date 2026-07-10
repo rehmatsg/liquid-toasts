@@ -175,6 +175,17 @@ struct ToastImage: Equatable {
 
 struct ToastModel: Identifiable, Equatable {
   let id: String
+
+  /// The SwiftUI view identity of this toast's row — normally the same as [id],
+  /// but held stable across an in-place group re-show (a "shake") so the row
+  /// morphs/shakes instead of exit+entering. Distinct from [id], which is the
+  /// wire id used for events, frames, and the auto-dismiss timer.
+  var identity: String
+
+  /// Bumped each time an already-visible group toast is re-shown with unchanged
+  /// text: the row observes the change and plays a one-shot horizontal shake.
+  /// Runtime-only (never decoded from the wire).
+  var shakeToken: Int = 0
   var message: String
   var title: String?
   var icon: String?
@@ -215,6 +226,7 @@ struct ToastModel: Identifiable, Equatable {
           let id = map["id"] as? String,
           let message = map["message"] as? String else { return nil }
     self.id = id
+    self.identity = id
     self.message = message
     self.title = map["title"] as? String
     self.icon = map["icon"] as? String

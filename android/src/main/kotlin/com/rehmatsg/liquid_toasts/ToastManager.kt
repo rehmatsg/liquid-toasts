@@ -95,18 +95,35 @@ internal class ToastManager(
         if (key != null) {
             val index = stack.indexOfFirst { it.groupKey == key }
             if (index >= 0) {
-                val oldId = stack[index].id
+                val existing = stack[index]
+                val oldId = existing.id
                 scheduler.disarm(oldId)
                 frames.remove(oldId)
                 imageGeneration.remove(oldId)
                 var incoming = model
                 if (imageData != null) {
-                    val preserved = stack[index].image
+                    val preserved = existing.image
                     // Keep the old avatar up until the fresh decode lands (no flash).
                     if (preserved != null) incoming = incoming.copy(image = preserved)
                 }
-                bumpGeneration()
-                replaceAt(index, incoming)
+                // Re-show of a group whose text is unchanged: shake the existing
+                // toast in place instead of exit+enter. Reusing the row identity
+                // avoids the re-entrance; adopting the incoming id keeps the newest
+                // handle in control of the (same) toast, like a content morph.
+                val textUnchanged = existing.title == incoming.title && existing.message == incoming.message
+                if (textUnchanged) {
+                    incoming = incoming.copy(
+                        identity = existing.rowKey,
+                        shakeToken = existing.shakeToken + 1,
+                        hasEntered = existing.hasEntered,
+                    )
+                    // No generation bump: the row-key set is unchanged, so nothing
+                    // structural animates — only the row's one-shot shake plays.
+                    replaceAt(index, incoming)
+                } else {
+                    bumpGeneration()
+                    replaceAt(index, incoming)
+                }
                 emitDismissed(oldId, "replaced")
                 scheduler.arm(model.id, model.autoDurationMs)
                 fireHaptic(model)

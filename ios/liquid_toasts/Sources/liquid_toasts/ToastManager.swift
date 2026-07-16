@@ -1,6 +1,46 @@
 import SwiftUI
 import UIKit
 
+/// Screen-edge insets in logical points. The effective safe area is the
+/// edge-wise maximum of the device geometry and the app-provided minimum.
+struct ToastSafeAreaInsets: Equatable {
+  var top: CGFloat = 0
+  var left: CGFloat = 0
+  var bottom: CGFloat = 0
+  var right: CGFloat = 0
+
+  init(top: CGFloat = 0, left: CGFloat = 0, bottom: CGFloat = 0, right: CGFloat = 0) {
+    self.top = max(0, top)
+    self.left = max(0, left)
+    self.bottom = max(0, bottom)
+    self.right = max(0, right)
+  }
+
+  init(_ insets: UIEdgeInsets) {
+    self.init(top: insets.top, left: insets.left, bottom: insets.bottom, right: insets.right)
+  }
+
+  func union(_ other: Self) -> Self {
+    Self(
+      top: max(top, other.top),
+      left: max(left, other.left),
+      bottom: max(bottom, other.bottom),
+      right: max(right, other.right)
+    )
+  }
+
+  /// Extra padding SwiftUI needs beyond the system safe area it applies
+  /// automatically to the root hosting view.
+  func excess(over device: Self) -> Self {
+    Self(
+      top: max(0, top - device.top),
+      left: max(0, left - device.left),
+      bottom: max(0, bottom - device.bottom),
+      right: max(0, right - device.right)
+    )
+  }
+}
+
 /// The single source of truth for the toast stack. Owns the queue,
 /// replace-by-`groupKey`, per-position `maxVisible` enforcement, exactly-once
 /// teardown, and emits lifecycle events back to the plugin via [onEvent].
@@ -14,9 +54,23 @@ final class ToastManager: ObservableObject {
   /// container once and per-row equality gating keeps the other rows cheap.
   @Published private(set) var toasts: [ToastModel] = []
 
-  /// Top safe-area inset (set by the overlay host from the window). Drives the
-  /// entrance slide distance. The host writes it only on change.
-  @Published var topSafeArea: CGFloat = 0
+  /// Device safe-area geometry plus the app-provided minimum. The host/config
+  /// paths write only on change so unrelated toasts are not re-rendered.
+  @Published private(set) var deviceSafeArea = ToastSafeAreaInsets()
+  @Published var customSafeArea = ToastSafeAreaInsets()
+
+  var effectiveSafeArea: ToastSafeAreaInsets {
+    deviceSafeArea.union(customSafeArea)
+  }
+
+  var customSafeAreaPadding: ToastSafeAreaInsets {
+    effectiveSafeArea.excess(over: deviceSafeArea)
+  }
+
+  func updateDeviceSafeArea(_ insets: UIEdgeInsets) {
+    let next = ToastSafeAreaInsets(insets)
+    if deviceSafeArea != next { deviceSafeArea = next }
+  }
 
   /// Frames (window coordinates) of the interactive toasts, fed by the SwiftUI
   /// layer and read ONLY imperatively by the overlay host's hit-test.

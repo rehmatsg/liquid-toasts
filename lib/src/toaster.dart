@@ -341,13 +341,13 @@ final class Toaster {
         progress: progress,
         progressStyle: progressStyle,
         semanticsLabel: semanticsLabel,
-        maxLines: maxLines ?? 1,
-        titleMaxLines: titleMaxLines ?? 1,
+        maxLines: maxLines,
+        titleMaxLines: titleMaxLines,
         useDynamicIslandOrigin: useDynamicIslandOrigin,
       ));
 
-  /// Full-control escape hatch: shows an explicit [Toast] value unchanged
-  /// (only a null [Toast.position] is resolved to the app default).
+  /// Full-control escape hatch. Explicit toast values win; omitted position and
+  /// line limits inherit the app defaults.
   ToastHandle raw(Toast toast) => _engine.show(toast);
 
   // ---------------------------------------------------------------------------
@@ -528,8 +528,8 @@ final class Toaster {
       progressStyle: progressStyle,
       haptic: haptic,
       semanticsLabel: semanticsLabel,
-      maxLines: maxLines ?? SemanticDefaults.maxLinesFor(semantic),
-      titleMaxLines: titleMaxLines ?? 1,
+      maxLines: maxLines,
+      titleMaxLines: titleMaxLines,
       useDynamicIslandOrigin: useDynamicIslandOrigin,
     ));
   }
@@ -548,7 +548,6 @@ final class Toaster {
         style: style,
         duration: _engine.config.defaultDuration ??
             SemanticDefaults.durationFor(semantic),
-        maxLines: SemanticDefaults.maxLinesFor(semantic),
         useDynamicIslandOrigin: useDynamicIslandOrigin,
       );
 }

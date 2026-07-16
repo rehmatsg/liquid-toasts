@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_toasts/liquid_toasts.dart';
@@ -113,5 +114,20 @@ void main() {
 
   test('a raw Toast without a position serializes the topCenter fallback', () {
     expect(const Toast(message: 'x').toMap()['position'], 'topCenter');
+  });
+
+  test('configure serializes the custom safe area in logical pixels', () async {
+    await platform.configure(
+      const LiquidToastsConfig(safeArea: EdgeInsets.fromLTRB(12, 96, 20, 72)),
+    );
+
+    final args = calls.single.arguments as Map;
+    expect(args['protocolVersion'], 1);
+    expect(args['safeArea'], {
+      'left': 12.0,
+      'top': 96.0,
+      'right': 20.0,
+      'bottom': 72.0,
+    });
   });
 }

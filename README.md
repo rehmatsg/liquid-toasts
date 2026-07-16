@@ -191,12 +191,20 @@ Each is a `ToastColor(light, dark:)` and resolves adaptively — no `BuildContex
 ```dart
 toast.setDefaults(const LiquidToastsConfig(
   defaultPosition: ToastPosition.topCenter,
+  maxLines: 3,          // messages (per-toast maxLines still wins)
+  titleMaxLines: 2,     // titles (per-toast titleMaxLines still wins)
+  safeArea: EdgeInsets.only(top: 96, bottom: 72),
   maxVisible: 3,
 ));
 ```
 
 `defaultDuration` left null keeps the per-semantic defaults
 (success/info/warning 3 s, error 4 s).
+
+`safeArea` is a minimum inset in logical pixels. The native overlays always
+respect the real device safe area too, taking the larger value at each edge, so
+you can reserve space for app headers, floating controls, or bottom navigation
+without double-counting the status bar or home indicator.
 
 > **Name collision?** `import 'package:liquid_toasts/liquid_toasts.dart' hide
 > toast;` and use `Toaster.instance`.
@@ -210,6 +218,7 @@ toast.setDefaults(const LiquidToastsConfig(
 | `ToastAction` | Single action button (`label`, `onPressed`, `role`, `color`) |
 | `ToastHandle` | Live controller: patch-style `update(...)`, `replace(Toast)`, `dismiss`, `onDismissed` |
 | `ToastStyleOverride` / `ToastColor` | Per-toast `background` (surface) / `tint` (accent) / `foreground` (text, auto-derived from background) / `iconColor` / `glass` / `cornerRadius` overrides (adaptive light/dark; `ToastColor.hex(...)` for hex) |
+| `LiquidToastsConfig` | App-wide position/duration, message/title line limits, minimum safe area, and stack limits |
 | `LiquidToasts` / `LoadingToast` | **Deprecated** legacy facade — working delegates until 1.0 |
 
 ## Migrating from `LiquidToasts`

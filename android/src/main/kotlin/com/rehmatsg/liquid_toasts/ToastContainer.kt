@@ -59,6 +59,7 @@ internal data class ToastInsets(
 internal fun ToastContainer(
     manager: ToastManager,
     insets: ToastInsets,
+    customSafeArea: ToastSafeArea,
     entranceDistanceDp: Float,
     isDark: Boolean,
     animationsEnabled: Boolean,
@@ -84,7 +85,8 @@ internal fun ToastContainer(
                 position = position,
                 toasts = if (position.isBottom) list else list.asReversed(),
                 insets = insets,
-                entranceDistanceDp = entranceDistanceDp,
+                customSafeArea = customSafeArea,
+                entranceDistanceDp = maxOf(entranceDistanceDp, customSafeArea.top * 0.5f),
                 isDark = isDark,
                 animationsEnabled = animationsEnabled,
                 deviceWidthDp = deviceWidthDp,
@@ -99,6 +101,7 @@ private fun PositionedList(
     position: ToastPositionModel,
     toasts: List<ToastModel>,
     insets: ToastInsets,
+    customSafeArea: ToastSafeArea,
     entranceDistanceDp: Float,
     isDark: Boolean,
     animationsEnabled: Boolean,
@@ -106,13 +109,17 @@ private fun PositionedList(
     manager: ToastManager,
 ) {
     val alignment = alignmentFor(position)
-    // Container padding: safe insets + the iOS container margins (8/8/12dp);
-    // bottom positions also clear the IME.
+    // The custom values are minimum screen-edge insets, so take the larger of
+    // each app-provided edge and the device safe area. Bottom positions compare
+    // against the IME-safe bottom as well.
     val padding = PaddingValues(
-        start = insets.left + 12.dp,
-        end = insets.right + 12.dp,
-        top = insets.top + 8.dp,
-        bottom = insets.bottom + 8.dp + if (position.isBottom) insets.ime else 0.dp,
+        start = maxOf(insets.left.value, customSafeArea.left).dp + 12.dp,
+        end = maxOf(insets.right.value, customSafeArea.right).dp + 12.dp,
+        top = maxOf(insets.top.value, customSafeArea.top).dp + 8.dp,
+        bottom = maxOf(
+            insets.bottom.value + if (position.isBottom) insets.ime.value else 0f,
+            customSafeArea.bottom,
+        ).dp + 8.dp,
     )
 
     // Retention: a dismissed toast is kept in the list (as a snapshot) with its

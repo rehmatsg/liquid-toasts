@@ -31,6 +31,7 @@ void runDemoReel({
   required String prefix,
   required Map<String, DemoPreview> previews,
   String wallpaper = 'assets/wallpaper.jpg',
+  Widget? overlay,
   Duration settle = const Duration(seconds: 2),
   Duration gap = const Duration(milliseconds: 1800),
 }) {
@@ -41,6 +42,7 @@ void runDemoReel({
     prefix: prefix,
     previews: previews,
     wallpaper: wallpaper,
+    overlay: overlay,
     settle: settle,
     gap: gap,
   ));
@@ -51,6 +53,7 @@ class _DemoReelApp extends StatelessWidget {
     required this.prefix,
     required this.previews,
     required this.wallpaper,
+    required this.overlay,
     required this.settle,
     required this.gap,
   });
@@ -58,6 +61,7 @@ class _DemoReelApp extends StatelessWidget {
   final String prefix;
   final Map<String, DemoPreview> previews;
   final String wallpaper;
+  final Widget? overlay;
   final Duration settle;
   final Duration gap;
 
@@ -69,6 +73,7 @@ class _DemoReelApp extends StatelessWidget {
         prefix: prefix,
         previews: previews,
         wallpaper: wallpaper,
+        overlay: overlay,
         settle: settle,
         gap: gap,
       ),
@@ -81,6 +86,7 @@ class _DemoReelStage extends StatefulWidget {
     required this.prefix,
     required this.previews,
     required this.wallpaper,
+    required this.overlay,
     required this.settle,
     required this.gap,
   });
@@ -88,6 +94,7 @@ class _DemoReelStage extends StatefulWidget {
   final String prefix;
   final Map<String, DemoPreview> previews;
   final String wallpaper;
+  final Widget? overlay;
   final Duration settle;
   final Duration gap;
 
@@ -124,8 +131,12 @@ class _DemoReelStageState extends State<_DemoReelStage> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        body: SizedBox.expand(
-          child: Image.asset(widget.wallpaper, fit: BoxFit.cover),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(widget.wallpaper, fit: BoxFit.cover),
+            if (widget.overlay != null) widget.overlay!,
+          ],
         ),
       ),
     );

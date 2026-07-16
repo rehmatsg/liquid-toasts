@@ -146,6 +146,56 @@ void main() {
     });
   });
 
+  group('global line limits', () {
+    test('apply to convenience, raw, and promise-created toasts', () async {
+      await toast.setDefaults(
+        const LiquidToastsConfig(maxLines: 3, titleMaxLines: 2),
+      );
+
+      final convenience = toast.warning('warning', title: 'title');
+      final raw = toast.raw(const Toast(message: 'raw', title: 'title'));
+      final promise = toast.promise<void>(
+        Future<void>.value(),
+        loading: 'loading',
+        success: 'done',
+      );
+      await promise;
+
+      expect(fake.shown[convenience.id]?.maxLines, 3);
+      expect(fake.shown[convenience.id]?.titleMaxLines, 2);
+      expect(fake.shown[raw.id]?.maxLines, 3);
+      expect(fake.shown[raw.id]?.titleMaxLines, 2);
+      expect(fake.updates.single.toast.maxLines, 3);
+      expect(fake.updates.single.toast.titleMaxLines, 2);
+    });
+
+    test('per-toast values override the global settings', () async {
+      await toast.setDefaults(
+        const LiquidToastsConfig(maxLines: 4, titleMaxLines: 3),
+      );
+      final t = toast.show(
+        'message',
+        title: 'title',
+        maxLines: 1,
+        titleMaxLines: 1,
+      );
+      await pumpEventQueue();
+
+      expect(fake.shown[t.id]?.maxLines, 1);
+      expect(fake.shown[t.id]?.titleMaxLines, 1);
+    });
+
+    test('null settings preserve the semantic message defaults', () async {
+      final warning = toast.warning('warning');
+      final info = toast.info('info');
+      await pumpEventQueue();
+
+      expect(fake.shown[warning.id]?.maxLines, 2);
+      expect(fake.shown[info.id]?.maxLines, 1);
+      expect(fake.shown[warning.id]?.titleMaxLines, 1);
+    });
+  });
+
   group('promise', () {
     test('returns the value and morphs to a built success toast', () async {
       final completer = Completer<int>();

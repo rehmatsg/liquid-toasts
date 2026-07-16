@@ -49,6 +49,15 @@ public class LiquidToastsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
       if let value = args?.int("maxVisible") { manager.maxVisible = max(1, value) }
       if let value = args?.int("maxQueue") { manager.maxQueue = max(1, value) }
       if let policy = args?["dropPolicy"] as? String { manager.dropOldest = policy != "dropNewest" }
+      if let safeArea = args?["safeArea"] as? [String: Any] {
+        let next = ToastSafeAreaInsets(
+          top: safeArea.cgFloat("top") ?? 0,
+          left: safeArea.cgFloat("left") ?? 0,
+          bottom: safeArea.cgFloat("bottom") ?? 0,
+          right: safeArea.cgFloat("right") ?? 0
+        )
+        if manager.customSafeArea != next { manager.customSafeArea = next }
+      }
       result(nil)
 
     case "show":

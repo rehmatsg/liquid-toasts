@@ -166,6 +166,14 @@ class LiquidToastsPlugin :
                 args?.optInt("maxVisible")?.let { manager.maxVisible = maxOf(1, it) }
                 args?.optInt("maxQueue")?.let { manager.maxQueue = maxOf(1, it) }
                 (args?.get("dropPolicy") as? String)?.let { manager.dropOldest = it != "dropNewest" }
+                args?.optMap("safeArea")?.let { safeArea ->
+                    manager.customSafeArea.value = ToastSafeArea(
+                        top = maxOf(0.0, safeArea.optDouble("top") ?: 0.0).toFloat(),
+                        left = maxOf(0.0, safeArea.optDouble("left") ?: 0.0).toFloat(),
+                        bottom = maxOf(0.0, safeArea.optDouble("bottom") ?: 0.0).toFloat(),
+                        right = maxOf(0.0, safeArea.optDouble("right") ?: 0.0).toFloat(),
+                    )
+                }
                 // defaultGlass is decoded-and-ignored (exact iOS parity).
                 result.success(null)
             }

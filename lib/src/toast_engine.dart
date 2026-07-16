@@ -97,7 +97,7 @@ class ToastEngine {
   /// handle with [ToastDismissReason.channelLost] — errors never surface to
   /// fire-and-forget callers.
   ToastHandle show(Toast toast) {
-    final resolved = _resolvePosition(toast);
+    final resolved = _resolveDefaults(toast);
     final id = nextToastId();
     final actionId = resolved.action != null ? nextActionId() : null;
     final reg = ToastRegistration(
@@ -135,7 +135,7 @@ class ToastEngine {
   Future<bool> replace(String id, Toast toast) {
     final reg = _registry[id];
     if (reg == null) return Future<bool>.value(false);
-    final resolved = _resolvePosition(toast);
+    final resolved = _resolveDefaults(toast);
     final actionId = resolved.action != null ? nextActionId() : null;
     // Rewire synchronously — before the platform op runs — so later patches
     // compose off this state and stale async-action completions can tell.
@@ -322,11 +322,16 @@ class ToastEngine {
     return run;
   }
 
-  /// Applies the app-wide default position to a toast that didn't specify one.
-  /// The single place config position is resolved.
-  Toast _resolvePosition(Toast toast) => toast.position == null
-      ? toast.copyWith(position: _config.defaultPosition)
-      : toast;
+  /// Applies app-wide defaults that need omitted-vs-explicit tracking.
+  Toast _resolveDefaults(Toast toast) {
+    final positioned = toast.position == null
+        ? toast.copyWith(position: _config.defaultPosition)
+        : toast;
+    return positioned.resolveLineLimits(
+      maxLines: _config.maxLines,
+      titleMaxLines: _config.titleMaxLines,
+    );
+  }
 
   /// Resolves an [ImageProvider] to PNG bytes via the Flutter image pipeline
   /// (no `BuildContext` needed) to hand to the native renderer. Returns null if

@@ -8,6 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+/** App-provided minimum screen-edge insets in logical dp. */
+internal data class ToastSafeArea(
+    val top: Float = 0f,
+    val left: Float = 0f,
+    val bottom: Float = 0f,
+    val right: Float = 0f,
+)
+
 /**
  * The single source of truth for the toast stack, ported from `ToastManager.swift`.
  * Owns the queue, replace-by-[ToastModel.groupKey], per-position `maxVisible`
@@ -60,6 +68,9 @@ internal class ToastManager(
     var maxVisible: Int = 5
     var maxQueue: Int = 8
     var dropOldest: Boolean = true
+
+    /** Minimum safe area supplied by Dart; observed directly by the container. */
+    val customSafeArea: MutableState<ToastSafeArea> = mutableStateOf(ToastSafeArea())
 
     /** Emits a wire-ready event payload to the plugin's event sink. */
     var onEvent: ((Map<String, Any?>) -> Unit)? = null

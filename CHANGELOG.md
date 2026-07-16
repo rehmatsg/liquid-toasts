@@ -1,3 +1,14 @@
+## 0.7.0
+
+* **Global line limits** — `LiquidToastsConfig.maxLines` and
+  `titleMaxLines` apply to every toast that omits a per-toast value, including
+  raw `Toast` values and `toast.promise` phases. Existing semantic defaults are
+  unchanged when the global values are null.
+* **Custom safe area** — `LiquidToastsConfig.safeArea` reserves app-owned
+  screen space in Flutter logical pixels. SwiftUI and Compose take the larger
+  of each custom edge and the real device safe-area inset, so toasts avoid app
+  headers, floating controls, and bottom navigation on both platforms.
+
 ## 0.6.0
 
 **Shake in place & smarter overflow.** Two native refinements to how the stack

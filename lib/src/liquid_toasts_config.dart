@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:meta/meta.dart';
 
 import 'toast_position.dart';
@@ -8,19 +9,24 @@ enum ToastDropPolicy { dropOldest, dropNewest }
 
 /// App-wide defaults, applied via [LiquidToasts.setDefaults].
 ///
-/// [defaultPosition], [defaultDuration] and [defaultGlass] are applied by the
-/// convenience constructors (`success`/`error`/…) when the caller omits them.
-/// [maxVisible], [maxQueue] and [dropPolicy] govern the native stack/queue.
+/// [defaultPosition], [defaultDuration], [defaultGlass], [maxLines] and
+/// [titleMaxLines] are applied when an individual toast omits them.
+/// [safeArea] reserves app-owned space in addition to the device geometry,
+/// while [maxVisible], [maxQueue] and [dropPolicy] govern the native stack.
 @immutable
 class LiquidToastsConfig {
   const LiquidToastsConfig({
     this.defaultPosition = ToastPosition.topCenter,
     this.defaultDuration,
     this.defaultGlass = ToastGlass.adaptive,
+    this.maxLines,
+    this.titleMaxLines,
+    this.safeArea = EdgeInsets.zero,
     this.maxVisible = 5,
     this.maxQueue = 8,
     this.dropPolicy = ToastDropPolicy.dropOldest,
-  });
+  })  : assert(maxLines == null || maxLines > 0),
+        assert(titleMaxLines == null || titleMaxLines > 0);
 
   final ToastPosition defaultPosition;
 
@@ -29,6 +35,23 @@ class LiquidToastsConfig {
   /// error 4s); a non-null value overrides them all uniformly.
   final Duration? defaultDuration;
   final ToastGlass defaultGlass;
+
+  /// App-wide message line cap. Null keeps the semantic defaults (two lines
+  /// for errors/warnings and one for other toasts). A per-toast `maxLines`
+  /// value always wins.
+  final int? maxLines;
+
+  /// App-wide title line cap. Null keeps the one-line default. A per-toast
+  /// `titleMaxLines` value always wins.
+  final int? titleMaxLines;
+
+  /// Minimum logical-pixel inset to keep clear at each screen edge.
+  ///
+  /// The real system safe area is always honored; native rendering takes the
+  /// larger of the device inset and this value independently for each edge.
+  /// This can reserve space occupied by an app header, floating control, or
+  /// bottom navigation without double-counting the status bar/home indicator.
+  final EdgeInsets safeArea;
 
   /// Max toasts shown per position (a vertical list). When a new toast would
   /// exceed this, the oldest **auto-dismiss** toast in that position is
@@ -52,5 +75,11 @@ class LiquidToastsConfig {
         'maxQueue': maxQueue,
         'dropPolicy': dropPolicy.name,
         'defaultGlass': defaultGlass.name,
+        'safeArea': {
+          'left': safeArea.left,
+          'top': safeArea.top,
+          'right': safeArea.right,
+          'bottom': safeArea.bottom,
+        },
       };
 }

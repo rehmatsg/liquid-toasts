@@ -116,6 +116,7 @@ internal class OverlayHost(
             ToastContainer(
                 manager = manager,
                 insets = insetsState,
+                customSafeArea = manager.customSafeArea.value,
                 entranceDistanceDp = entranceDistanceDp,
                 isDark = isDark,
                 animationsEnabled = animatorsEnabled(),

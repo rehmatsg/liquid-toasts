@@ -61,6 +61,8 @@ struct ToastContainerView: View {
   private func positionedList(position: ToastPositionModel, toasts: [ToastModel]) -> some View {
     // Top lists show newest first (on top); bottom lists show newest last.
     let ordered = position.isBottom ? toasts : toasts.reversed()
+    let safeArea = manager.effectiveSafeArea
+    let customPadding = manager.customSafeAreaPadding
     VStack(alignment: position.horizontalAlignment, spacing: 10) {
       // Keyed by `identity`, not `id`: a group re-show with unchanged text keeps
       // the same identity while swapping the wire id, so the row shakes in place
@@ -69,7 +71,7 @@ struct ToastContainerView: View {
         ToastRow(
           toast: toast,
           deviceWidth: hostWidth,
-          entranceDistance: max(16, manager.topSafeArea * 0.5),
+          entranceDistance: max(16, safeArea.top * 0.5),
           onTapBody: { manager.handleBodyTap(id: toast.id) },
           onAction: { manager.handleAction(id: toast.id) },
           onSwipe: { manager.handleSwipe(id: toast.id) },
@@ -87,9 +89,10 @@ struct ToastContainerView: View {
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: position.alignment)
-    .padding(.top, 8)
-    .padding(.bottom, 8)
-    .padding(.horizontal, 12)
+    .padding(.top, customPadding.top + 8)
+    .padding(.bottom, customPadding.bottom + 8)
+    .padding(.leading, customPadding.left + 12)
+    .padding(.trailing, customPadding.right + 12)
   }
 
   private var motion: Animation? {

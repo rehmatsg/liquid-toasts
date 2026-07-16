@@ -37,8 +37,8 @@ class Toast {
     this.progressStyle = ToastProgressStyle.linear,
     this.haptic,
     this.semanticsLabel,
-    this.maxLines = 1,
-    this.titleMaxLines = 1,
+    this._maxLines,
+    this._titleMaxLines,
     required this.loading,
   });
 
@@ -60,8 +60,8 @@ class Toast {
     ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     ToastHaptic? haptic,
     String? semanticsLabel,
-    int maxLines = 1,
-    int titleMaxLines = 1,
+    int? maxLines,
+    int? titleMaxLines,
   }) : this._raw(
           message: message,
           title: title,
@@ -99,8 +99,8 @@ class Toast {
     double? progress,
     ToastProgressStyle progressStyle = ToastProgressStyle.linear,
     String? semanticsLabel,
-    int maxLines = 1,
-    int titleMaxLines = 1,
+    int? maxLines,
+    int? titleMaxLines,
   }) : this._raw(
           message: message,
           title: title,
@@ -140,7 +140,7 @@ class Toast {
     required ToastHaptic? haptic,
     required String? semanticsLabel,
     required int? maxLines,
-    required int titleMaxLines,
+    required int? titleMaxLines,
   }) =>
       Toast._raw(
         message: message,
@@ -160,7 +160,7 @@ class Toast {
         progressStyle: progressStyle,
         haptic: haptic,
         semanticsLabel: semanticsLabel,
-        maxLines: maxLines ?? SemanticDefaults.maxLinesFor(semantic),
+        maxLines: maxLines,
         titleMaxLines: titleMaxLines,
         loading: false,
       );
@@ -183,7 +183,7 @@ class Toast {
     ToastHaptic? haptic,
     String? semanticsLabel,
     int? maxLines,
-    int titleMaxLines = 1,
+    int? titleMaxLines,
   }) =>
       Toast._semantic(
         ToastSemantic.success,
@@ -225,7 +225,7 @@ class Toast {
     ToastHaptic? haptic,
     String? semanticsLabel,
     int? maxLines,
-    int titleMaxLines = 1,
+    int? titleMaxLines,
   }) =>
       Toast._semantic(
         ToastSemantic.error,
@@ -267,7 +267,7 @@ class Toast {
     ToastHaptic? haptic,
     String? semanticsLabel,
     int? maxLines,
-    int titleMaxLines = 1,
+    int? titleMaxLines,
   }) =>
       Toast._semantic(
         ToastSemantic.warning,
@@ -309,7 +309,7 @@ class Toast {
     ToastHaptic? haptic,
     String? semanticsLabel,
     int? maxLines,
-    int titleMaxLines = 1,
+    int? titleMaxLines,
   }) =>
       Toast._semantic(
         ToastSemantic.info,
@@ -390,12 +390,21 @@ class Toast {
   /// VoiceOver label. Falls back to `title` + `message` natively.
   final String? semanticsLabel;
 
-  /// Max lines for [message] before truncation.
-  final int maxLines;
+  /// Explicit message line limit, if supplied. Kept private so the public
+  /// [maxLines] getter remains non-null while the engine can still distinguish
+  /// an omitted value from an explicit per-toast override.
+  final int? _maxLines;
 
-  /// Max lines the [title] wraps to before truncating (default 1). Raise to 2
-  /// to let a long title wrap instead of being cut off.
-  final int titleMaxLines;
+  /// Max lines for [message] before truncation. Before the toast is shown this
+  /// exposes the semantic fallback; at show time an app-wide value may replace
+  /// that fallback.
+  int get maxLines => _maxLines ?? SemanticDefaults.maxLinesFor(semantic);
+
+  final int? _titleMaxLines;
+
+  /// Max lines the [title] wraps to before truncating (default 1). At show time
+  /// an app-wide value may replace that fallback.
+  int get titleMaxLines => _titleMaxLines ?? 1;
 
   /// True for a persistent spinner toast.
   final bool loading;
@@ -448,9 +457,18 @@ class Toast {
         progressStyle: progressStyle ?? this.progressStyle,
         haptic: haptic ?? this.haptic,
         semanticsLabel: semanticsLabel ?? this.semanticsLabel,
-        maxLines: maxLines ?? this.maxLines,
-        titleMaxLines: titleMaxLines ?? this.titleMaxLines,
+        maxLines: maxLines ?? _maxLines,
+        titleMaxLines: titleMaxLines ?? _titleMaxLines,
         loading: loading ?? this.loading,
+      );
+
+  /// Resolves inherited line limits without exposing nullable public fields.
+  /// Per-toast values win, followed by app-wide values and semantic fallbacks.
+  @internal
+  Toast resolveLineLimits({int? maxLines, int? titleMaxLines}) => copyWith(
+        maxLines:
+            _maxLines ?? maxLines ?? SemanticDefaults.maxLinesFor(semantic),
+        titleMaxLines: _titleMaxLines ?? titleMaxLines ?? 1,
       );
 
   /// Wire format. [actionId] is the id minted for [action] (omit when there is

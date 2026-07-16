@@ -7,6 +7,12 @@ import UIKit
 /// Flutter.
 final class PassthroughHostView: UIView {
   weak var manager: ToastManager?
+  var onSafeAreaInsetsChanged: ((UIEdgeInsets) -> Void)?
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
+    onSafeAreaInsetsChanged?(safeAreaInsets)
+  }
 
   override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
     guard let frames = manager?.frames, !frames.isEmpty else { return nil }
@@ -55,6 +61,9 @@ final class ToastOverlayHost {
 
     let host = PassthroughHostView()
     host.manager = manager
+    host.onSafeAreaInsetsChanged = { [weak self] insets in
+      self?.manager.updateDeviceSafeArea(insets)
+    }
     host.backgroundColor = .clear
     host.translatesAutoresizingMaskIntoConstraints = false
 
@@ -79,12 +88,10 @@ final class ToastOverlayHost {
     refreshGeometry()
   }
 
-  /// Recomputes device geometry (top safe-area inset) onto the manager.
-  /// Writes only on change — `topSafeArea` is @Published and this fires on
-  /// every scene activation.
+  /// Recomputes device safe-area geometry onto the manager. The manager writes
+  /// only on change; this also fires on every scene activation.
   func refreshGeometry() {
-    let top = Self.activeWindow()?.safeAreaInsets.top ?? 0
-    if manager.topSafeArea != top { manager.topSafeArea = top }
+    manager.updateDeviceSafeArea(Self.activeWindow()?.safeAreaInsets ?? .zero)
   }
 
   /// Keeps the overlay frontmost if the app later adds sibling views.
